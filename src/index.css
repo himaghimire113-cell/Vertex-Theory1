@@ -1,0 +1,416 @@
+@import "tailwindcss";
+
+/* -------------------------------------------------------------
+ * TYPOGRAPHY HIERARCHY & THEME SYSTEM
+ * Fonts: Plus Jakarta Sans (500,600,700), Inter (400,500), Roboto Mono (400)
+ * Themes: Sepia (Default), Dark, Light
+ * ------------------------------------------------------------- */
+
+:root,
+html[data-theme="light"],
+.theme-light {
+  --font-heading: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'Roboto Mono', monospace;
+
+  /* Primary Light Color Palette (Soft Off-White & Deep Charcoal) */
+  --color-bg: #fafafa;
+  --color-bg-subtle: #f4f5f7;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f1f3f5;
+  --color-surface-card: #ffffff;
+  --color-surface-secondary: #f0f2f5;
+  --color-border: #e2e5ea;
+  --color-border-subtle: #edf0f5;
+  --color-border-focus: #ea4326;
+
+  --color-text-primary: #111827;
+  --color-text-secondary: #374151;
+  --color-text-muted: #4b5563;
+  --color-text-dim: #6b7280;
+
+  --color-accent: #ea4326;
+  --color-accent-hover: #d4351a;
+  --color-accent-subtle: rgba(234, 67, 38, 0.08);
+  --color-accent-border: rgba(234, 67, 38, 0.25);
+
+  --color-code-bg: #1e2229;
+  --color-code-text: #f8f9fa;
+  --color-code-border: #2d333f;
+  --color-code-inline-bg: #e9ecef;
+  --color-code-inline-text: #c92a2a;
+
+  --color-nav-bg: rgba(250, 250, 250, 0.94);
+  --color-nav-border: #e5e7eb;
+  --color-selection-bg: #ea4326;
+  --color-selection-text: #ffffff;
+}
+
+html[data-theme="sepia"],
+.theme-sepia {
+  --font-heading: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'Roboto Mono', monospace;
+
+  /* Sepia Color Palette (Warm Book / Editorial Parchment) */
+  --color-bg: #f5eedc;
+  --color-bg-subtle: #ede3cd;
+  --color-surface: #faf4e8;
+  --color-surface-hover: #f1e7d2;
+  --color-surface-card: #fdfaf3;
+  --color-surface-secondary: #ebdcc2;
+  --color-border: #ded2b8;
+  --color-border-subtle: #e8dcbf;
+  --color-border-focus: #b84825;
+  
+  --color-text-primary: #2d2419;
+  --color-text-secondary: #4d4032;
+  --color-text-muted: #786650;
+  --color-text-dim: #9c8872;
+
+  --color-accent: #b84825;
+  --color-accent-hover: #9c3b1c;
+  --color-accent-subtle: rgba(184, 72, 37, 0.12);
+  --color-accent-border: rgba(184, 72, 37, 0.3);
+
+  --color-code-bg: #261f16;
+  --color-code-text: #fbf5e8;
+  --color-code-border: #3d3224;
+  --color-code-inline-bg: #eadecb;
+  --color-code-inline-text: #9c381a;
+
+  --color-nav-bg: rgba(245, 238, 220, 0.94);
+  --color-nav-border: #ded2b8;
+  --color-selection-bg: #b84825;
+  --color-selection-text: #ffffff;
+}
+
+html[data-theme="dark"],
+.theme-dark {
+  --font-heading: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'Roboto Mono', monospace;
+
+  /* Dark Color Palette (Warm Obsidian) */
+  --color-bg: #0c0d10;
+  --color-bg-subtle: #12141a;
+  --color-surface: #14161f;
+  --color-surface-hover: #1c1f2b;
+  --color-surface-card: #12141c;
+  --color-surface-secondary: #191c26;
+  --color-border: #232733;
+  --color-border-subtle: #1c202b;
+  --color-border-focus: #ff5533;
+
+  --color-text-primary: #eceef2;
+  --color-text-secondary: #c8ccd6;
+  --color-text-muted: #8a91a5;
+  --color-text-dim: #5c6275;
+
+  --color-accent: #ff5533;
+  --color-accent-hover: #ff6a4a;
+  --color-accent-subtle: rgba(255, 85, 51, 0.15);
+  --color-accent-border: rgba(255, 85, 51, 0.35);
+
+  --color-code-bg: #08090c;
+  --color-code-text: #f1f3f7;
+  --color-code-border: #202430;
+  --color-code-inline-bg: #1c1f2a;
+  --color-code-inline-text: #ff8866;
+
+  --color-nav-bg: rgba(12, 13, 16, 0.94);
+  --color-nav-border: #1f222b;
+  --color-selection-bg: #ff5533;
+  --color-selection-text: #ffffff;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    overflow-x: hidden;
+    max-width: 100%;
+    width: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    overflow-x: hidden;
+    max-width: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  #root {
+    overflow-x: hidden;
+    max-width: 100%;
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  img,
+  video,
+  canvas,
+  svg,
+  iframe {
+    max-width: 100%;
+    height: auto;
+  }
+
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  a,
+  span,
+  blockquote,
+  li {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  ::selection {
+    background-color: var(--color-selection-bg);
+    color: var(--color-selection-text);
+  }
+}
+
+/* -------------------------------------------------------------
+ * TYPOGRAPHIC UTILITIES & HIERARCHY
+ * ------------------------------------------------------------- */
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* 1. Blog Title (H1): Plus Jakarta Sans, 700 Bold, Desktop 36-42px | Mobile 28-32px, LH 1.2, Tracking -0.02em */
+.blog-title,
+.article-h1 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+@media (min-width: 640px) {
+  .blog-title,
+  .article-h1 {
+    font-size: 32px;
+  }
+}
+
+@media (min-width: 768px) {
+  .blog-title,
+  .article-h1 {
+    font-size: 40px;
+  }
+}
+
+/* 2. Excerpt / Summary: Plus Jakarta Sans, 500 Medium, Desktop 18-20px | Mobile 16px, LH 1.5, 80% opacity / muted */
+.blog-excerpt,
+.article-excerpt {
+  font-family: var(--font-heading);
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  opacity: 0.9;
+}
+
+@media (min-width: 768px) {
+  .blog-excerpt,
+  .article-excerpt {
+    font-size: 19px;
+  }
+}
+
+/* 3. Subheadings (H2 / H3): Plus Jakarta Sans, 600 SemiBold, H2: 26-30px, H3: 20-22px, LH 1.3, Top Margin 1.5rem to 2rem */
+.article-h2 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 26px;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+  margin-top: 1.75rem;
+  margin-bottom: 0.85rem;
+  letter-spacing: -0.015em;
+}
+
+@media (min-width: 768px) {
+  .article-h2 {
+    font-size: 30px;
+    margin-top: 2rem;
+  }
+}
+
+.article-h3 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+  margin-top: 1.5rem;
+  margin-bottom: 0.65rem;
+  letter-spacing: -0.01em;
+}
+
+@media (min-width: 768px) {
+  .article-h3 {
+    font-size: 22px;
+    margin-top: 1.75rem;
+  }
+}
+
+/* 4. Full Post Body Text: Inter, 400 Regular, Desktop 18px | Mobile 16px, LH 1.7, Max Width 65ch */
+.article-body-text,
+.article-content p,
+.article-content li {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+  max-width: 65ch;
+}
+
+@media (min-width: 768px) {
+  .article-body-text,
+  .article-content p,
+  .article-content li {
+    font-size: 18px;
+  }
+}
+
+/* 5. Code Blocks & Technical Snippets: Roboto Mono, 400 Regular, Size 14-15px, LH 1.5, high-contrast bg padding & rounded corners */
+.article-code-block,
+.article-content pre {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.5;
+  background-color: var(--color-code-bg);
+  color: var(--color-code-text);
+  border: 1px solid var(--color-code-border);
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  overflow-x: auto;
+  margin: 1.75rem 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+@media (min-width: 768px) {
+  .article-code-block,
+  .article-content pre {
+    font-size: 15px;
+  }
+}
+
+.article-content pre code {
+  font-family: var(--font-mono);
+  background: transparent;
+  padding: 0;
+  color: var(--color-code-text);
+  font-size: inherit;
+}
+
+.article-content code:not(pre code) {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 0.875em;
+  background-color: var(--color-code-inline-bg);
+  color: var(--color-code-inline-text);
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.375rem;
+}
+
+/* Blockquotes */
+.article-content blockquote {
+  font-family: var(--font-heading);
+  font-weight: 500;
+  font-size: 1.15rem;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  border-left: 3px solid var(--color-accent);
+  padding-left: 1.25rem;
+  margin: 1.75rem 0;
+  background-color: var(--color-accent-subtle);
+  border-top-right-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+/* Article Lists & Images */
+.article-content ul {
+  list-style-type: disc;
+  margin-bottom: 1.75rem;
+  padding-left: 1.5rem;
+}
+
+.article-content ol {
+  list-style-type: decimal;
+  margin-bottom: 1.75rem;
+  padding-left: 1.5rem;
+}
+
+.article-content li {
+  margin-bottom: 0.5rem;
+}
+
+.article-content a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  transition: color 0.15s ease;
+}
+
+.article-content a:hover {
+  color: var(--color-accent-hover);
+}
+
+.article-content img {
+  border-radius: 12px;
+  margin: 2rem 0;
+  width: 100%;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}

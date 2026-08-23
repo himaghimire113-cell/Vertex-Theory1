@@ -1,0 +1,6 @@
+{
+  "name": "Vertex Theory - Modern Editorial Blog & Publishing Platform",
+  "description": "A high-craft editorial blog platform inspired by modern visual theory with query-param routing, Firestore/Auth integration, affiliate link embeds, newsletter engine with CSV export, reader messaging, and an admin publishing dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
