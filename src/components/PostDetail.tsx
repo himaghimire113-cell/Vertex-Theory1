@@ -203,7 +203,8 @@ export const PostDetail: React.FC<PostDetailProps> = ({
     if (!rawContent) return null;
 
     const paragraphs = rawContent.split('\n\n');
-    const midPoint = paragraphs.length > 2 ? Math.floor(paragraphs.length / 2) : 1;
+    // Calculate 60% mark through the post content for native banner ad placement
+    const targetPoint = paragraphs.length > 2 ? Math.floor(paragraphs.length * 0.6) : 1;
     const elements: React.ReactNode[] = [];
 
     paragraphs.forEach((block, idx) => {
@@ -300,8 +301,8 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
       elements.push(renderedEl);
 
-      // Inject Native Banner Ad exactly once in the middle of the post content
-      if (idx === midPoint) {
+      // Inject Native Banner Ad exactly once at approximately 60% of the post content
+      if (idx === targetPoint) {
         elements.push(<NativeBannerAd key="mid-article-native-ad" />);
       }
     });
