@@ -28,7 +28,6 @@ import {
   incrementPostLikes 
 } from '../firebaseConfig';
 import { SponsorBanner } from './SponsorBanner';
-import { NativeBannerAd } from './NativeBannerAd';
 import { NewsletterSection } from './NewsletterSection';
 
 interface PostDetailProps {
@@ -203,8 +202,6 @@ export const PostDetail: React.FC<PostDetailProps> = ({
     if (!rawContent) return null;
 
     const paragraphs = rawContent.split('\n\n');
-    // Calculate 60% mark through the post content for native banner ad placement
-    const targetPoint = paragraphs.length > 2 ? Math.floor(paragraphs.length * 0.6) : 1;
     const elements: React.ReactNode[] = [];
 
     paragraphs.forEach((block, idx) => {
@@ -300,11 +297,6 @@ export const PostDetail: React.FC<PostDetailProps> = ({
       }
 
       elements.push(renderedEl);
-
-      // Inject Native Banner Ad exactly once at approximately 60% of the post content
-      if (idx === targetPoint) {
-        elements.push(<NativeBannerAd key="mid-article-native-ad" />);
-      }
     });
 
     return elements;
