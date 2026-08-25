@@ -28,6 +28,7 @@ import {
   incrementPostLikes 
 } from '../firebaseConfig';
 import { SponsorBanner } from './SponsorBanner';
+import { SocialBannerAd } from './SocialBannerAd';
 import { NewsletterSection } from './NewsletterSection';
 
 interface PostDetailProps {
@@ -544,6 +545,9 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
         {/* Newsletter Box */}
         <NewsletterSection source={`post-${post.slug}`} variant="inline" />
+
+        {/* Social Banner Ad Placement */}
+        <SocialBannerAd />
 
         {/* SECTION: MESSAGE THE AUTHOR DIRECTLY ON THIS POST */}
         <div className="my-12 p-6 sm:p-8 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] space-y-4 shadow-sm">

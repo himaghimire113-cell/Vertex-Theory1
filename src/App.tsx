@@ -31,6 +31,7 @@ import { AdminAuthGate } from './components/AdminAuthGate';
 import { AboutPage } from './components/AboutPage';
 import { ContactPage } from './components/ContactPage';
 import { SponsorBanner } from './components/SponsorBanner';
+import { SocialBannerAd } from './components/SocialBannerAd';
 import { NewsletterSection } from './components/NewsletterSection';
 import { INITIAL_SITE_SETTINGS } from './data/defaultData';
 import { trackPageView, trackPostView, trackSearch } from './utils/analytics';
@@ -518,6 +519,9 @@ export default function App() {
                   </motion.div>
                 )}
               </section>
+
+              {/* Social Banner Ad Monetization Widget */}
+              <SocialBannerAd />
 
               {/* Newsletter Capture Banner */}
               {!isSearching && <NewsletterSection source="homepage-footer" />}
