@@ -83,20 +83,20 @@ function formatIsoDate(rawDate?: string): string {
       return parsed.toISOString();
     }
   } catch {
-    // ignore
+    // fallback
   }
   return new Date().toISOString();
 }
 
 /**
- * Fetch post metadata from Firebase Firestore REST API
+ * Fetch post metadata from Firebase Firestore REST API dynamically by slug or ID
  */
 async function fetchPostFromFirestore(slugOrId: string, projectId: string): Promise<PostMetadata | null> {
   const cleanSlug = decodeURIComponent(slugOrId).trim();
   if (!cleanSlug) return null;
 
   try {
-    // Strategy 1: Run structured query on the `slug` field
+    // Strategy 1: Run structured query specifically on the `slug` field
     const queryUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${FIRESTORE_DATABASE}/documents:runQuery`;
     
     const queryBody = {
@@ -115,7 +115,10 @@ async function fetchPostFromFirestore(slugOrId: string, projectId: string): Prom
 
     const queryResponse = await fetch(queryUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
       body: JSON.stringify(queryBody),
     });
 
@@ -125,52 +128,58 @@ async function fetchPostFromFirestore(slugOrId: string, projectId: string): Prom
       const fields = doc?.fields;
 
       if (fields) {
-        const title = extractFieldValue(fields, 'title', 'postTitle', 'name', 'headline') || 'Vertex Theory Article';
+        const title = extractFieldValue(fields, 'title', 'postTitle', 'name', 'headline');
         const rawDesc = extractFieldValue(fields, 'excerpt', 'description', 'summary', 'subtitle', 'content');
         const imageUrl = extractFieldValue(fields, 'coverImage', 'imageUrl', 'image', 'featuredImage', 'thumbnail');
         const authorName = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author') || 'Vertex Theory';
         const rawTime = doc?.createTime || fields.createdAt?.stringValue || fields.publishedAt?.stringValue || fields.date?.stringValue;
 
-        return {
-          title,
-          description: cleanTextSnippet(rawDesc) || 'Read the full publication on Vertex Theory.',
-          imageUrl: imageUrl || '',
-          url: '',
-          publishedTime: formatIsoDate(rawTime),
-          authorName,
-          publisherName: 'Vertex Theory',
-        };
+        if (title) {
+          return {
+            title,
+            description: cleanTextSnippet(rawDesc) || 'Read the full publication on Vertex Theory.',
+            imageUrl: imageUrl || '',
+            url: '',
+            publishedTime: formatIsoDate(rawTime),
+            authorName,
+            publisherName: 'Vertex Theory',
+          };
+        }
       }
     }
 
     // Strategy 2: Fallback direct document fetch if ID is used directly in Firestore
     const directDocUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${FIRESTORE_DATABASE}/documents/${POSTS_COLLECTION}/${encodeURIComponent(cleanSlug)}`;
-    const directResponse = await fetch(directDocUrl);
+    const directResponse = await fetch(directDocUrl, {
+      headers: { 'Cache-Control': 'no-cache' }
+    });
 
     if (directResponse.ok) {
       const directDoc = (await directResponse.json()) as { fields?: Record<string, FirestoreValue>; createTime?: string };
       const fields = directDoc.fields;
 
       if (fields) {
-        const title = extractFieldValue(fields, 'title', 'postTitle', 'name', 'headline') || 'Vertex Theory Article';
+        const title = extractFieldValue(fields, 'title', 'postTitle', 'name', 'headline');
         const rawDesc = extractFieldValue(fields, 'excerpt', 'description', 'summary', 'subtitle', 'content');
         const imageUrl = extractFieldValue(fields, 'coverImage', 'imageUrl', 'image', 'featuredImage', 'thumbnail');
         const authorName = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author') || 'Vertex Theory';
         const rawTime = directDoc.createTime || fields.createdAt?.stringValue || fields.publishedAt?.stringValue || fields.date?.stringValue;
 
-        return {
-          title,
-          description: cleanTextSnippet(rawDesc) || 'Read the full publication on Vertex Theory.',
-          imageUrl: imageUrl || '',
-          url: '',
-          publishedTime: formatIsoDate(rawTime),
-          authorName,
-          publisherName: 'Vertex Theory',
-        };
+        if (title) {
+          return {
+            title,
+            description: cleanTextSnippet(rawDesc) || 'Read the full publication on Vertex Theory.',
+            imageUrl: imageUrl || '',
+            url: '',
+            publishedTime: formatIsoDate(rawTime),
+            authorName,
+            publisherName: 'Vertex Theory',
+          };
+        }
       }
     }
   } catch (error) {
-    console.error('Error fetching post metadata from Firestore REST API:', error);
+    console.error('Error fetching dynamic post metadata from Firestore:', error);
   }
 
   return null;
@@ -180,7 +189,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // 1. Check if the incoming URL contains a post parameter or route
+    // 1. Extract dynamic post slug parameter strictly from the incoming URL
     // Matches ?post=your-post-slug, ?p=slug, ?article=slug, or /post/your-post-slug
     let postSlug = url.searchParams.get('post') || url.searchParams.get('p') || url.searchParams.get('article');
 
@@ -196,24 +205,53 @@ export default {
       }
     }
 
+    // Clean any trailing slashes or URL encoded spaces
+    if (postSlug) {
+      postSlug = postSlug.trim();
+    }
+
     // 2. Fetch the origin response (static assets or proxied origin)
-    let response: Response;
+    let originResponse: Response;
     if (env.ASSETS) {
-      response = await env.ASSETS.fetch(request);
+      originResponse = await env.ASSETS.fetch(request);
     } else {
-      response = await fetch(request);
+      originResponse = await fetch(request);
     }
 
-    // If no post parameter or not an HTML response, return response as-is
-    const contentType = response.headers.get('content-type') || '';
-    if (!postSlug || !contentType.includes('text/html')) {
-      return response;
+    const contentType = originResponse.headers.get('content-type') || '';
+    
+    // If not an HTML response, return asset as-is with origin headers
+    if (!contentType.includes('text/html')) {
+      return originResponse;
     }
 
-    // 3. Fetch metadata from Firebase Firestore
+    // If no post parameter is present in URL, serve standard default index.html
+    if (!postSlug) {
+      const headers = new Headers(originResponse.headers);
+      headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+      headers.set('Vary', 'Accept-Encoding, User-Agent');
+      return new Response(originResponse.body, {
+        status: originResponse.status,
+        statusText: originResponse.statusText,
+        headers,
+      });
+    }
+
+    // 3. Fetch exact matching metadata dynamically from Firebase Firestore
     const postData = await fetchPostFromFirestore(postSlug, FIREBASE_PROJECT_ID);
+    
+    // If the requested slug is NOT found in Firestore, fallback to standard site index.html
     if (!postData) {
-      return response; // Fallback to standard page if post record is not found
+      const fallbackHeaders = new Headers(originResponse.headers);
+      fallbackHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0');
+      fallbackHeaders.set('Pragma', 'no-cache');
+      fallbackHeaders.set('Expires', '0');
+      fallbackHeaders.set('Vary', 'Accept-Encoding, User-Agent');
+      return new Response(originResponse.body, {
+        status: originResponse.status,
+        statusText: originResponse.statusText,
+        headers: fallbackHeaders,
+      });
     }
 
     postData.url = url.href;
@@ -224,11 +262,13 @@ export default {
     let seenPublishedTime = false;
     let seenPublisher = false;
     let seenOgImage = false;
+    let seenOgSecureImage = false;
     let seenOgUrl = false;
     let seenTwitterImage = false;
+    let seenCanonical = false;
 
     // 4. Use Cloudflare HTMLRewriter to rewrite dynamic meta tags on the fly
-    return new HTMLRewriter()
+    const rewriter = new HTMLRewriter()
       // Overwrite <title>
       .on('title', {
         element(el) {
@@ -288,6 +328,19 @@ export default {
           }
         },
       })
+      .on('meta[property="og:image:secure_url"]', {
+        element(el) {
+          seenOgSecureImage = true;
+          if (postData.imageUrl) {
+            el.setAttribute('content', postData.imageUrl);
+          }
+        },
+      })
+      .on('meta[property="og:image:alt"]', {
+        element(el) {
+          el.setAttribute('content', postData.title);
+        },
+      })
       .on('meta[property="og:url"]', {
         element(el) {
           seenOgUrl = true;
@@ -328,6 +381,18 @@ export default {
           }
         },
       })
+      .on('meta[name="twitter:image:alt"]', {
+        element(el) {
+          el.setAttribute('content', postData.title);
+        },
+      })
+      // Overwrite canonical link
+      .on('link[rel="canonical"]', {
+        element(el) {
+          seenCanonical = true;
+          el.setAttribute('href', postData.url);
+        },
+      })
       // Head injector: append any missing tags
       .on('head', {
         element(el) {
@@ -349,11 +414,31 @@ export default {
           if (!seenOgImage && postData.imageUrl) {
             el.append(`<meta property="og:image" content="${postData.imageUrl}" />`, { html: true });
           }
+          if (!seenOgSecureImage && postData.imageUrl) {
+            el.append(`<meta property="og:image:secure_url" content="${postData.imageUrl}" />`, { html: true });
+          }
           if (!seenTwitterImage && postData.imageUrl) {
             el.append(`<meta name="twitter:image" content="${postData.imageUrl}" />`, { html: true });
           }
+          if (!seenCanonical) {
+            el.append(`<link rel="canonical" href="${postData.url}" />`, { html: true });
+          }
         },
-      })
-      .transform(response);
+      });
+
+    const transformedResponse = rewriter.transform(originResponse);
+    
+    // Set strict cache-busting headers so Cloudflare Edge Cache, CDNs, and crawlers never cache cross-post metadata
+    const dynamicHeaders = new Headers(transformedResponse.headers);
+    dynamicHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0');
+    dynamicHeaders.set('Pragma', 'no-cache');
+    dynamicHeaders.set('Expires', '0');
+    dynamicHeaders.set('Vary', 'Accept-Encoding, User-Agent');
+
+    return new Response(transformedResponse.body, {
+      status: transformedResponse.status,
+      statusText: transformedResponse.statusText,
+      headers: dynamicHeaders,
+    });
   },
 };

@@ -8,7 +8,7 @@ const FIREBASE_PROJECT_ID = 'vertextheory1-44870';
 const FIRESTORE_DATABASE = '(default)';
 const POSTS_COLLECTION = 'posts';
 
-function cleanTextSnippet(raw, maxLength = 160) {
+function cleanTextSnippet(raw, maxLength = 150) {
   if (!raw) return '';
   const stripped = raw
     .replace(/!\[.*?\]\(.*?\)/g, '')
@@ -31,6 +31,19 @@ function extractFieldValue(fields, ...possibleKeys) {
     }
   }
   return '';
+}
+
+function formatIsoDate(rawDate) {
+  if (!rawDate) return new Date().toISOString();
+  try {
+    const parsed = new Date(rawDate);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  } catch {
+    // fallback
+  }
+  return new Date().toISOString();
 }
 
 async function fetchPostFromFirestore(slugOrId, projectId) {
@@ -56,7 +69,10 @@ async function fetchPostFromFirestore(slugOrId, projectId) {
 
     const queryResponse = await fetch(queryUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
       body: JSON.stringify(queryBody),
     });
 
@@ -66,47 +82,57 @@ async function fetchPostFromFirestore(slugOrId, projectId) {
       const fields = doc?.fields;
 
       if (fields) {
-        const title = extractFieldValue(fields, 'title', 'postTitle', 'name', 'headline') || 'Vertex Theory Article';
+        const title = extractFieldValue(fields, 'title', 'postTitle', 'name', 'headline');
         const rawDesc = extractFieldValue(fields, 'excerpt', 'description', 'summary', 'subtitle', 'content');
         const imageUrl = extractFieldValue(fields, 'coverImage', 'imageUrl', 'image', 'featuredImage', 'thumbnail');
-        const authorName = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author');
+        const authorName = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author') || 'Vertex Theory';
+        const rawTime = doc?.createTime || fields.createdAt?.stringValue || fields.publishedAt?.stringValue || fields.date?.stringValue;
 
-        return {
-          title,
-          description: cleanTextSnippet(rawDesc) || 'Read the full publication on Vertex Theory.',
-          imageUrl: imageUrl || '',
-          url: '',
-          publishedTime: doc?.createTime || fields.createdAt?.stringValue,
-          authorName,
-        };
+        if (title) {
+          return {
+            title,
+            description: cleanTextSnippet(rawDesc) || 'Read the full publication on Vertex Theory.',
+            imageUrl: imageUrl || '',
+            url: '',
+            publishedTime: formatIsoDate(rawTime),
+            authorName,
+            publisherName: 'Vertex Theory',
+          };
+        }
       }
     }
 
     const directDocUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${FIRESTORE_DATABASE}/documents/${POSTS_COLLECTION}/${encodeURIComponent(cleanSlug)}`;
-    const directResponse = await fetch(directDocUrl);
+    const directResponse = await fetch(directDocUrl, {
+      headers: { 'Cache-Control': 'no-cache' }
+    });
 
     if (directResponse.ok) {
       const directDoc = await directResponse.json();
       const fields = directDoc.fields;
 
       if (fields) {
-        const title = extractFieldValue(fields, 'title', 'postTitle', 'name', 'headline') || 'Vertex Theory Article';
+        const title = extractFieldValue(fields, 'title', 'postTitle', 'name', 'headline');
         const rawDesc = extractFieldValue(fields, 'excerpt', 'description', 'summary', 'subtitle', 'content');
         const imageUrl = extractFieldValue(fields, 'coverImage', 'imageUrl', 'image', 'featuredImage', 'thumbnail');
-        const authorName = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author');
+        const authorName = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author') || 'Vertex Theory';
+        const rawTime = directDoc.createTime || fields.createdAt?.stringValue || fields.publishedAt?.stringValue || fields.date?.stringValue;
 
-        return {
-          title,
-          description: cleanTextSnippet(rawDesc) || 'Read the full publication on Vertex Theory.',
-          imageUrl: imageUrl || '',
-          url: '',
-          publishedTime: directDoc.createTime || fields.createdAt?.stringValue,
-          authorName,
-        };
+        if (title) {
+          return {
+            title,
+            description: cleanTextSnippet(rawDesc) || 'Read the full publication on Vertex Theory.',
+            imageUrl: imageUrl || '',
+            url: '',
+            publishedTime: formatIsoDate(rawTime),
+            authorName,
+            publisherName: 'Vertex Theory',
+          };
+        }
       }
     }
   } catch (error) {
-    console.error('Error fetching post metadata from Firestore REST API:', error);
+    console.error('Error fetching dynamic post metadata from Firestore:', error);
   }
 
   return null;
@@ -130,31 +156,62 @@ export default {
       }
     }
 
-    let response;
-    if (env.ASSETS) {
-      response = await env.ASSETS.fetch(request);
-    } else {
-      response = await fetch(request);
+    if (postSlug) {
+      postSlug = postSlug.trim();
     }
 
-    const contentType = response.headers.get('content-type') || '';
-    if (!postSlug || !contentType.includes('text/html')) {
-      return response;
+    let originResponse;
+    if (env.ASSETS) {
+      originResponse = await env.ASSETS.fetch(request);
+    } else {
+      originResponse = await fetch(request);
+    }
+
+    const contentType = originResponse.headers.get('content-type') || '';
+    if (!contentType.includes('text/html')) {
+      return originResponse;
+    }
+
+    if (!postSlug) {
+      const headers = new Headers(originResponse.headers);
+      headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+      headers.set('Vary', 'Accept-Encoding, User-Agent');
+      return new Response(originResponse.body, {
+        status: originResponse.status,
+        statusText: originResponse.statusText,
+        headers,
+      });
     }
 
     const postData = await fetchPostFromFirestore(postSlug, FIREBASE_PROJECT_ID);
+    
     if (!postData) {
-      return response;
+      const fallbackHeaders = new Headers(originResponse.headers);
+      fallbackHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0');
+      fallbackHeaders.set('Pragma', 'no-cache');
+      fallbackHeaders.set('Expires', '0');
+      fallbackHeaders.set('Vary', 'Accept-Encoding, User-Agent');
+      return new Response(originResponse.body, {
+        status: originResponse.status,
+        statusText: originResponse.statusText,
+        headers: fallbackHeaders,
+      });
     }
 
     postData.url = url.href;
     const formattedTitle = `${postData.title} | Vertex Theory`;
 
+    let seenAuthor = false;
+    let seenArticleAuthor = false;
+    let seenPublishedTime = false;
+    let seenPublisher = false;
     let seenOgImage = false;
+    let seenOgSecureImage = false;
     let seenOgUrl = false;
     let seenTwitterImage = false;
+    let seenCanonical = false;
 
-    return new HTMLRewriter()
+    const rewriter = new HTMLRewriter()
       .on('title', {
         element(el) {
           el.setInnerContent(formattedTitle);
@@ -163,6 +220,30 @@ export default {
       .on('meta[name="description"]', {
         element(el) {
           el.setAttribute('content', postData.description);
+        },
+      })
+      .on('meta[name="author"]', {
+        element(el) {
+          seenAuthor = true;
+          el.setAttribute('content', postData.authorName);
+        },
+      })
+      .on('meta[property="article:author"]', {
+        element(el) {
+          seenArticleAuthor = true;
+          el.setAttribute('content', postData.authorName);
+        },
+      })
+      .on('meta[property="article:published_time"]', {
+        element(el) {
+          seenPublishedTime = true;
+          el.setAttribute('content', postData.publishedTime);
+        },
+      })
+      .on('meta[property="article:publisher"]', {
+        element(el) {
+          seenPublisher = true;
+          el.setAttribute('content', postData.publisherName);
         },
       })
       .on('meta[property="og:title"]', {
@@ -183,6 +264,19 @@ export default {
           }
         },
       })
+      .on('meta[property="og:image:secure_url"]', {
+        element(el) {
+          seenOgSecureImage = true;
+          if (postData.imageUrl) {
+            el.setAttribute('content', postData.imageUrl);
+          }
+        },
+      })
+      .on('meta[property="og:image:alt"]', {
+        element(el) {
+          el.setAttribute('content', postData.title);
+        },
+      })
       .on('meta[property="og:url"]', {
         element(el) {
           seenOgUrl = true;
@@ -192,6 +286,16 @@ export default {
       .on('meta[property="og:type"]', {
         element(el) {
           el.setAttribute('content', 'article');
+        },
+      })
+      .on('meta[property="og:locale"]', {
+        element(el) {
+          el.setAttribute('content', 'en_US');
+        },
+      })
+      .on('meta[name="twitter:card"]', {
+        element(el) {
+          el.setAttribute('content', 'summary_large_image');
         },
       })
       .on('meta[name="twitter:title"]', {
@@ -212,22 +316,61 @@ export default {
           }
         },
       })
+      .on('meta[name="twitter:image:alt"]', {
+        element(el) {
+          el.setAttribute('content', postData.title);
+        },
+      })
+      .on('link[rel="canonical"]', {
+        element(el) {
+          seenCanonical = true;
+          el.setAttribute('href', postData.url);
+        },
+      })
       .on('head', {
         element(el) {
+          if (!seenAuthor) {
+            el.append(`<meta name="author" content="${postData.authorName}" />`, { html: true });
+          }
+          if (!seenArticleAuthor) {
+            el.append(`<meta property="article:author" content="${postData.authorName}" />`, { html: true });
+          }
+          if (!seenPublishedTime) {
+            el.append(`<meta property="article:published_time" content="${postData.publishedTime}" />`, { html: true });
+          }
+          if (!seenPublisher) {
+            el.append(`<meta property="article:publisher" content="${postData.publisherName}" />`, { html: true });
+          }
           if (!seenOgUrl) {
             el.append(`<meta property="og:url" content="${postData.url}" />`, { html: true });
           }
           if (!seenOgImage && postData.imageUrl) {
             el.append(`<meta property="og:image" content="${postData.imageUrl}" />`, { html: true });
           }
+          if (!seenOgSecureImage && postData.imageUrl) {
+            el.append(`<meta property="og:image:secure_url" content="${postData.imageUrl}" />`, { html: true });
+          }
           if (!seenTwitterImage && postData.imageUrl) {
             el.append(`<meta name="twitter:image" content="${postData.imageUrl}" />`, { html: true });
           }
-          if (postData.authorName) {
-            el.append(`<meta name="author" content="${postData.authorName}" />`, { html: true });
+          if (!seenCanonical) {
+            el.append(`<link rel="canonical" href="${postData.url}" />`, { html: true });
           }
         },
-      })
-      .transform(response);
+      });
+
+    const transformedResponse = rewriter.transform(originResponse);
+    
+    const dynamicHeaders = new Headers(transformedResponse.headers);
+    dynamicHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0');
+    dynamicHeaders.set('Pragma', 'no-cache');
+    dynamicHeaders.set('Expires', '0');
+    dynamicHeaders.set('Vary', 'Accept-Encoding, User-Agent');
+
+    return new Response(transformedResponse.body, {
+      status: transformedResponse.status,
+      statusText: transformedResponse.statusText,
+      headers: dynamicHeaders,
+    });
   },
 };
