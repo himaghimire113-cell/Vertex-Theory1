@@ -17,6 +17,7 @@ import { SiteSettings, Theme, Post } from '../types';
 import { navigateTo, RouteParams } from '../utils/helpers';
 import { ThemeToggle } from './ThemeToggle';
 import { SearchModal } from './SearchModal';
+import { Logo } from './Logo';
 import { logoutAdmin } from '../firebaseConfig';
 
 interface NavbarProps {
@@ -146,23 +147,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <Menu className="w-5 h-5 sm:w-5 sm:h-5 text-[var(--color-text-primary)]" />
               </button>
 
-              {/* Brand Monogram & Title */}
+              {/* Brand Logo & Title */}
               <button
                 onClick={() => handleNav('home')}
-                className="flex items-center gap-2.5 sm:gap-3 group text-left focus:outline-none min-w-0 cursor-pointer"
+                className="flex items-center group text-left focus:outline-none min-w-0 cursor-pointer"
                 aria-label="Vertex Theory Homepage"
               >
-                <div className="w-9 h-9 rounded-lg bg-[var(--color-accent)] flex items-center justify-center text-white font-heading font-black text-lg tracking-tighter shadow-md shadow-[var(--color-accent)]/20 group-hover:scale-105 transition-transform duration-200 shrink-0">
-                  <span>V</span>
-                </div>
-                <div className="min-w-0">
-                  <span className="font-heading font-bold text-base sm:text-xl tracking-tight text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors truncate block">
-                    {settings.siteName || 'VERTEX THEORY'}
-                  </span>
-                  <span className="hidden md:block text-[10px] tracking-widest uppercase font-mono text-[var(--color-text-muted)]">
-                    Editorial & Systems
-                  </span>
-                </div>
+                <Logo 
+                  customLogoUrl={settings.logoUrl} 
+                  subtitle="Editorial & Systems" 
+                  size="sm" 
+                  useImage={true}
+                />
               </button>
             </div>
 
@@ -228,19 +224,12 @@ export const Navbar: React.FC<NavbarProps> = ({
       >
         {/* Drawer Header */}
         <div className="p-5 sm:p-6 border-b border-[var(--color-border)] flex items-center justify-between bg-[var(--color-surface-secondary)]/50 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[var(--color-accent)] flex items-center justify-center text-white font-heading font-black text-base shadow-sm">
-              <span>V</span>
-            </div>
-            <div>
-              <span className="font-heading font-bold text-base text-[var(--color-text-primary)] block">
-                {settings.siteName || 'VERTEX THEORY'}
-              </span>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--color-text-dim)]">
-                Journal & Systems
-              </span>
-            </div>
-          </div>
+          <Logo 
+            customLogoUrl={settings.logoUrl} 
+            subtitle="Journal & Systems" 
+            size="sm" 
+            useImage={true}
+          />
 
           <button
             id="side-drawer-close"

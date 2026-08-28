@@ -2,6 +2,7 @@ import React from 'react';
 import { Sparkles, Twitter, Instagram, Github, Linkedin } from 'lucide-react';
 import { SiteSettings } from '../types';
 import { NewsletterSection } from './NewsletterSection';
+import { Logo } from './Logo';
 import { navigateTo } from '../utils/helpers';
 
 interface AboutPageProps {
@@ -12,11 +13,16 @@ export const AboutPage: React.FC<AboutPageProps> = ({ settings }) => {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-16 space-y-12">
       {/* Header */}
-      <div className="space-y-4 text-center sm:text-left">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--color-surface-secondary)] border border-[var(--color-border)] text-xs font-mono text-[var(--color-accent)] font-semibold">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>EDITORIAL MANIFESTO</span>
+      <div className="space-y-6 text-center sm:text-left">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6 pb-2 border-b border-[var(--color-border)]">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--color-surface-secondary)] border border-[var(--color-border)] text-xs font-mono text-[var(--color-accent)] font-semibold">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>EDITORIAL MANIFESTO</span>
+          </div>
+
+          <Logo customLogoUrl={settings.logoUrl} size="lg" useImage={true} textClassName="text-2xl font-black" />
         </div>
+
         <h1 className="font-heading font-bold text-3xl sm:text-5xl text-[var(--color-text-primary)] tracking-tight leading-tight">
           Engineering the Aesthetics of Latent Computation
         </h1>

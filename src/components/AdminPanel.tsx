@@ -48,6 +48,7 @@ import {
   formatEditorialDate,
   navigateTo 
 } from '../utils/helpers';
+import { Logo } from './Logo';
 import { 
   saveOrUpdatePost, 
   removePost, 
@@ -486,9 +487,9 @@ service cloud.firestore {
     return (
       <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md bg-[#12141c] border border-[#232733] rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#ff5533] to-[#cc3311] flex items-center justify-center text-white mx-auto shadow-lg shadow-[#ff5533]/25">
-              <Shield className="w-6 h-6" />
+          <div className="text-center space-y-3">
+            <div className="flex justify-center">
+              <Logo size={48} useImage={true} showText={false} />
             </div>
             <h2 className="font-heading font-extrabold text-2xl text-white">
               Vertex Theory Admin
@@ -597,9 +598,7 @@ service cloud.firestore {
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-[#12141c] border border-[#232733]">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#ff5533]/15 border border-[#ff5533]/30 flex items-center justify-center text-[#ff5533]">
-            <Shield className="w-5 h-5" />
-          </div>
+          <Logo size={42} useImage={true} showText={false} />
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-heading font-bold text-lg text-white">
@@ -1127,8 +1126,42 @@ service cloud.firestore {
           {/* Site Basics */}
           <div className="p-5 rounded-2xl bg-[#12141c] border border-[#232733] space-y-4">
             <h4 className="font-heading font-bold text-sm text-white">
-              Publication Identity
+              Publication Identity & Logo
             </h4>
+
+            {/* Logo Preview & Custom URL */}
+            <div className="p-4 rounded-xl bg-[#0c0d10] border border-[#262a37] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Logo size={48} useImage={true} customLogoUrl={appearanceData.logoUrl} showText={false} />
+                <div>
+                  <span className="text-xs font-semibold text-white block">Official Vertex Theory Logo Mark</span>
+                  <span className="text-[11px] text-[#717688]">
+                    {appearanceData.logoUrl ? 'Using custom image URL override' : 'Using official vector emblem & brand asset'}
+                  </span>
+                </div>
+              </div>
+
+              {appearanceData.logoUrl && (
+                <button
+                  type="button"
+                  onClick={() => setAppearanceData({ ...appearanceData, logoUrl: '' })}
+                  className="text-xs text-[#ff5533] hover:underline font-mono"
+                >
+                  Reset to Default Logo
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-mono text-[#9ca3af]">Custom Logo URL Override (Optional)</label>
+              <input
+                type="text"
+                placeholder="Leave blank to use the official Vertex Theory logo asset"
+                value={appearanceData.logoUrl || ''}
+                onChange={(e) => setAppearanceData({ ...appearanceData, logoUrl: e.target.value })}
+                className="w-full px-3.5 py-2 rounded-lg bg-[#0c0d10] border border-[#262a37] text-white text-xs focus:outline-none focus:border-[#ff5533]"
+              />
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">

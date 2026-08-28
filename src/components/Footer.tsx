@@ -2,6 +2,7 @@ import React from 'react';
 import { Shield } from 'lucide-react';
 import { SiteSettings } from '../types';
 import { navigateTo } from '../utils/helpers';
+import { Logo } from './Logo';
 
 interface FooterProps {
   settings: SiteSettings;
@@ -15,14 +16,17 @@ export const Footer: React.FC<FooterProps> = ({ settings, isAdminLoggedIn = fals
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12">
           {/* Brand Col */}
           <div className="md:col-span-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[var(--color-accent)] flex items-center justify-center text-white font-heading font-black text-base shadow-sm">
-                V
-              </div>
-              <span className="font-heading font-bold text-xl text-[var(--color-text-primary)] tracking-tight">
-                {settings.siteName || 'VERTEX THEORY'}
-              </span>
-            </div>
+            <button
+              onClick={() => navigateTo({ page: 'home', category: undefined, post: undefined })}
+              className="text-left group cursor-pointer"
+            >
+              <Logo 
+                customLogoUrl={settings.logoUrl} 
+                size="md" 
+                useImage={true} 
+                textClassName="text-xl"
+              />
+            </button>
 
             <p className="text-xs sm:text-sm text-[var(--color-text-muted)] font-body leading-relaxed max-w-sm">
               {settings.tagline || 'Reflections on Visual Engineering, Design Philosophy & Digital Systems.'}

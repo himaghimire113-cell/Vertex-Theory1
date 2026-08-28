@@ -18,6 +18,7 @@ import {
   DEFAULT_FIREBASE_CONFIG
 } from '../firebaseConfig';
 import { navigateTo } from '../utils/helpers';
+import { Logo } from './Logo';
 
 export const AdminAuthGate: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -78,9 +79,9 @@ export const AdminAuthGate: React.FC = () => {
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md p-6 sm:p-8 rounded-3xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl space-y-6">
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-[var(--color-accent-subtle)] text-[var(--color-accent)] border border-[var(--color-accent)]/30 flex items-center justify-center mx-auto shadow-sm">
-            <Shield className="w-6 h-6" />
+        <div className="text-center space-y-3">
+          <div className="flex justify-center">
+            <Logo size={48} useImage={true} showText={false} />
           </div>
           <h1 className="font-heading font-bold text-2xl text-[var(--color-text-primary)]">
             Restricted Admin Console
