@@ -35,14 +35,16 @@ interface PostMetadata {
   description: string;
   imageUrl: string;
   url: string;
-  publishedTime?: string;
-  authorName?: string;
+  publishedTime: string;
+  authorName: string;
+  publisherName: string;
 }
 
 /**
  * Clean markdown or HTML formatting from content string for preview descriptions
+ * Truncates to roughly 120-155 characters to avoid card truncation issues
  */
-function cleanTextSnippet(raw: string, maxLength = 160): string {
+function cleanTextSnippet(raw: string, maxLength = 150): string {
   if (!raw) return '';
   const stripped = raw
     .replace(/!\[.*?\]\(.*?\)/g, '') // remove markdown images
@@ -68,6 +70,22 @@ function extractFieldValue(fields: Record<string, FirestoreValue> | undefined, .
     }
   }
   return '';
+}
+
+/**
+ * Format date string into valid ISO 8601 string
+ */
+function formatIsoDate(rawDate?: string): string {
+  if (!rawDate) return new Date().toISOString();
+  try {
+    const parsed = new Date(rawDate);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  } catch {
+    // ignore
+  }
+  return new Date().toISOString();
 }
 
 /**
@@ -110,15 +128,17 @@ async function fetchPostFromFirestore(slugOrId: string, projectId: string): Prom
         const title = extractFieldValue(fields, 'title', 'postTitle', 'name', 'headline') || 'Vertex Theory Article';
         const rawDesc = extractFieldValue(fields, 'excerpt', 'description', 'summary', 'subtitle', 'content');
         const imageUrl = extractFieldValue(fields, 'coverImage', 'imageUrl', 'image', 'featuredImage', 'thumbnail');
-        const authorName = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author');
+        const authorName = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author') || 'Vertex Theory';
+        const rawTime = doc?.createTime || fields.createdAt?.stringValue || fields.publishedAt?.stringValue || fields.date?.stringValue;
 
         return {
           title,
           description: cleanTextSnippet(rawDesc) || 'Read the full publication on Vertex Theory.',
           imageUrl: imageUrl || '',
           url: '',
-          publishedTime: doc?.createTime || fields.createdAt?.stringValue,
+          publishedTime: formatIsoDate(rawTime),
           authorName,
+          publisherName: 'Vertex Theory',
         };
       }
     }
@@ -135,15 +155,17 @@ async function fetchPostFromFirestore(slugOrId: string, projectId: string): Prom
         const title = extractFieldValue(fields, 'title', 'postTitle', 'name', 'headline') || 'Vertex Theory Article';
         const rawDesc = extractFieldValue(fields, 'excerpt', 'description', 'summary', 'subtitle', 'content');
         const imageUrl = extractFieldValue(fields, 'coverImage', 'imageUrl', 'image', 'featuredImage', 'thumbnail');
-        const authorName = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author');
+        const authorName = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author') || 'Vertex Theory';
+        const rawTime = directDoc.createTime || fields.createdAt?.stringValue || fields.publishedAt?.stringValue || fields.date?.stringValue;
 
         return {
           title,
           description: cleanTextSnippet(rawDesc) || 'Read the full publication on Vertex Theory.',
           imageUrl: imageUrl || '',
           url: '',
-          publishedTime: directDoc.createTime || fields.createdAt?.stringValue,
+          publishedTime: formatIsoDate(rawTime),
           authorName,
+          publisherName: 'Vertex Theory',
         };
       }
     }
@@ -197,6 +219,10 @@ export default {
     postData.url = url.href;
     const formattedTitle = `${postData.title} | Vertex Theory`;
 
+    let seenAuthor = false;
+    let seenArticleAuthor = false;
+    let seenPublishedTime = false;
+    let seenPublisher = false;
     let seenOgImage = false;
     let seenOgUrl = false;
     let seenTwitterImage = false;
@@ -213,6 +239,34 @@ export default {
       .on('meta[name="description"]', {
         element(el) {
           el.setAttribute('content', postData.description);
+        },
+      })
+      // Overwrite author meta tag
+      .on('meta[name="author"]', {
+        element(el) {
+          seenAuthor = true;
+          el.setAttribute('content', postData.authorName);
+        },
+      })
+      // Overwrite article:author
+      .on('meta[property="article:author"]', {
+        element(el) {
+          seenArticleAuthor = true;
+          el.setAttribute('content', postData.authorName);
+        },
+      })
+      // Overwrite article:published_time
+      .on('meta[property="article:published_time"]', {
+        element(el) {
+          seenPublishedTime = true;
+          el.setAttribute('content', postData.publishedTime);
+        },
+      })
+      // Overwrite article:publisher
+      .on('meta[property="article:publisher"]', {
+        element(el) {
+          seenPublisher = true;
+          el.setAttribute('content', postData.publisherName);
         },
       })
       // Overwrite Open Graph tags
@@ -245,7 +299,17 @@ export default {
           el.setAttribute('content', 'article');
         },
       })
+      .on('meta[property="og:locale"]', {
+        element(el) {
+          el.setAttribute('content', 'en_US');
+        },
+      })
       // Overwrite Twitter Card tags
+      .on('meta[name="twitter:card"]', {
+        element(el) {
+          el.setAttribute('content', 'summary_large_image');
+        },
+      })
       .on('meta[name="twitter:title"]', {
         element(el) {
           el.setAttribute('content', postData.title);
@@ -267,6 +331,18 @@ export default {
       // Head injector: append any missing tags
       .on('head', {
         element(el) {
+          if (!seenAuthor) {
+            el.append(`<meta name="author" content="${postData.authorName}" />`, { html: true });
+          }
+          if (!seenArticleAuthor) {
+            el.append(`<meta property="article:author" content="${postData.authorName}" />`, { html: true });
+          }
+          if (!seenPublishedTime) {
+            el.append(`<meta property="article:published_time" content="${postData.publishedTime}" />`, { html: true });
+          }
+          if (!seenPublisher) {
+            el.append(`<meta property="article:publisher" content="${postData.publisherName}" />`, { html: true });
+          }
           if (!seenOgUrl) {
             el.append(`<meta property="og:url" content="${postData.url}" />`, { html: true });
           }
@@ -275,9 +351,6 @@ export default {
           }
           if (!seenTwitterImage && postData.imageUrl) {
             el.append(`<meta name="twitter:image" content="${postData.imageUrl}" />`, { html: true });
-          }
-          if (postData.authorName) {
-            el.append(`<meta name="author" content="${postData.authorName}" />`, { html: true });
           }
         },
       })
