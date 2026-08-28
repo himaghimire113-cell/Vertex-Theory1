@@ -4,62 +4,25 @@
  * using Cloudflare HTMLRewriter and Firebase Firestore REST API.
  */
 
-// ============================================================================
-// CONFIGURATION & DATABASE SCHEMA
-// ============================================================================
 const FIREBASE_PROJECT_ID = 'vertextheory1-44870';
 const FIRESTORE_DATABASE = '(default)';
 const POSTS_COLLECTION = 'posts';
 
-interface Env {
-  ASSETS?: {
-    fetch: (request: Request) => Promise<Response>;
-  };
-  [key: string]: unknown;
-}
-
-interface FirestoreValue {
-  stringValue?: string;
-  integerValue?: string;
-  booleanValue?: boolean;
-  mapValue?: {
-    fields?: Record<string, FirestoreValue>;
-  };
-  arrayValue?: {
-    values?: FirestoreValue[];
-  };
-}
-
-interface PostMetadata {
-  title: string;
-  description: string;
-  imageUrl: string;
-  url: string;
-  publishedTime?: string;
-  authorName?: string;
-}
-
-/**
- * Clean markdown or HTML formatting from content string for preview descriptions
- */
-function cleanTextSnippet(raw: string, maxLength = 160): string {
+function cleanTextSnippet(raw, maxLength = 160) {
   if (!raw) return '';
   const stripped = raw
-    .replace(/!\[.*?\]\(.*?\)/g, '') // remove markdown images
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // markdown links -> text
-    .replace(/[#*`_~>[\]]/g, '') // markdown formatting characters
-    .replace(/<[^>]*>/g, '') // html tags
-    .replace(/\s+/g, ' ') // collapse whitespaces
+    .replace(/!\[.*?\]\(.*?\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[#*`_~>[\]]/g, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
     .trim();
 
   if (stripped.length <= maxLength) return stripped;
   return stripped.substring(0, maxLength).trim() + '...';
 }
 
-/**
- * Extract clean string value from Firestore REST value representation
- */
-function extractFieldValue(fields: Record<string, FirestoreValue> | undefined, ...possibleKeys: string[]): string {
+function extractFieldValue(fields, ...possibleKeys) {
   if (!fields) return '';
   for (const key of possibleKeys) {
     const val = fields[key];
@@ -70,15 +33,11 @@ function extractFieldValue(fields: Record<string, FirestoreValue> | undefined, .
   return '';
 }
 
-/**
- * Fetch post metadata from Firebase Firestore REST API
- */
-async function fetchPostFromFirestore(slugOrId: string, projectId: string): Promise<PostMetadata | null> {
+async function fetchPostFromFirestore(slugOrId, projectId) {
   const cleanSlug = decodeURIComponent(slugOrId).trim();
   if (!cleanSlug) return null;
 
   try {
-    // Strategy 1: Run structured query on the `slug` field
     const queryUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${FIRESTORE_DATABASE}/documents:runQuery`;
     
     const queryBody = {
@@ -102,7 +61,7 @@ async function fetchPostFromFirestore(slugOrId: string, projectId: string): Prom
     });
 
     if (queryResponse.ok) {
-      const results = (await queryResponse.json()) as Array<{ document?: { fields?: Record<string, FirestoreValue>; createTime?: string } }>;
+      const results = await queryResponse.json();
       const doc = results?.[0]?.document;
       const fields = doc?.fields;
 
@@ -123,12 +82,11 @@ async function fetchPostFromFirestore(slugOrId: string, projectId: string): Prom
       }
     }
 
-    // Strategy 2: Fallback direct document fetch if ID is used directly in Firestore
     const directDocUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${FIRESTORE_DATABASE}/documents/${POSTS_COLLECTION}/${encodeURIComponent(cleanSlug)}`;
     const directResponse = await fetch(directDocUrl);
 
     if (directResponse.ok) {
-      const directDoc = (await directResponse.json()) as { fields?: Record<string, FirestoreValue>; createTime?: string };
+      const directDoc = await directResponse.json();
       const fields = directDoc.fields;
 
       if (fields) {
@@ -155,11 +113,9 @@ async function fetchPostFromFirestore(slugOrId: string, projectId: string): Prom
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request, env) {
     const url = new URL(request.url);
 
-    // 1. Check if the incoming URL contains a post parameter or route
-    // Matches ?post=your-post-slug, ?p=slug, ?article=slug, or /post/your-post-slug
     let postSlug = url.searchParams.get('post') || url.searchParams.get('p') || url.searchParams.get('article');
 
     if (!postSlug && url.pathname.startsWith('/post/')) {
@@ -174,24 +130,21 @@ export default {
       }
     }
 
-    // 2. Fetch the origin response (static assets or proxied origin)
-    let response: Response;
+    let response;
     if (env.ASSETS) {
       response = await env.ASSETS.fetch(request);
     } else {
       response = await fetch(request);
     }
 
-    // If no post parameter or not an HTML response, return response as-is
     const contentType = response.headers.get('content-type') || '';
     if (!postSlug || !contentType.includes('text/html')) {
       return response;
     }
 
-    // 3. Fetch metadata from Firebase Firestore
     const postData = await fetchPostFromFirestore(postSlug, FIREBASE_PROJECT_ID);
     if (!postData) {
-      return response; // Fallback to standard page if post record is not found
+      return response;
     }
 
     postData.url = url.href;
@@ -201,21 +154,17 @@ export default {
     let seenOgUrl = false;
     let seenTwitterImage = false;
 
-    // 4. Use Cloudflare HTMLRewriter to rewrite dynamic meta tags on the fly
     return new HTMLRewriter()
-      // Overwrite <title>
       .on('title', {
         element(el) {
           el.setInnerContent(formattedTitle);
         },
       })
-      // Overwrite standard meta description
       .on('meta[name="description"]', {
         element(el) {
           el.setAttribute('content', postData.description);
         },
       })
-      // Overwrite Open Graph tags
       .on('meta[property="og:title"]', {
         element(el) {
           el.setAttribute('content', postData.title);
@@ -245,7 +194,6 @@ export default {
           el.setAttribute('content', 'article');
         },
       })
-      // Overwrite Twitter Card tags
       .on('meta[name="twitter:title"]', {
         element(el) {
           el.setAttribute('content', postData.title);
@@ -264,7 +212,6 @@ export default {
           }
         },
       })
-      // Head injector: append any missing tags
       .on('head', {
         element(el) {
           if (!seenOgUrl) {
