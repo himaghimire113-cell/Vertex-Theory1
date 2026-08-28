@@ -243,7 +243,15 @@ function isSocialCrawler(userAgent) {
     ua.includes('google-inspectiontool') ||
     ua.includes('applebot') ||
     ua.includes('vkshare') ||
-    ua.includes('redditbot')
+    ua.includes('redditbot') ||
+    ua.includes('nuxtseo') ||
+    ua.includes('opengraph') ||
+    ua.includes('crawler') ||
+    ua.includes('spider') ||
+    ua.includes('bot') ||
+    ua.includes('validator') ||
+    ua.includes('preview') ||
+    ua.includes('lighthouse')
   );
 }
 
