@@ -12,6 +12,7 @@ const FIREBASE_API_KEY = 'AIzaSyBxfrho3UuOnPyFBHIbXiYXc-WekM91hNA';
 const FIRESTORE_DATABASE = '(default)';
 const POSTS_COLLECTION = 'posts';
 
+// Hardcoded fallback default posts for instant lookup if Firestore is offline
 const HARDCODED_POSTS = [
   {
     id: 'post-1',
@@ -51,6 +52,9 @@ const HARDCODED_POSTS = [
   }
 ];
 
+/**
+ * Clean markdown or HTML formatting from content string for preview descriptions
+ */
 function cleanTextSnippet(raw, maxLength = 160) {
   if (!raw) return '';
   const stripped = raw
@@ -65,6 +69,9 @@ function cleanTextSnippet(raw, maxLength = 160) {
   return stripped.substring(0, maxLength).trim() + '...';
 }
 
+/**
+ * Slugify helper to match titles to slugs
+ */
 function slugifyText(text) {
   return (text || '')
     .toLowerCase()
@@ -74,6 +81,9 @@ function slugifyText(text) {
     .replace(/^-+|-+$/g, '');
 }
 
+/**
+ * Extract clean string value from Firestore REST value representation
+ */
 function extractFieldValue(fields, ...possibleKeys) {
   if (!fields) return '';
   for (const key of possibleKeys) {
@@ -85,6 +95,9 @@ function extractFieldValue(fields, ...possibleKeys) {
   return '';
 }
 
+/**
+ * Format date string into valid ISO 8601 string
+ */
 function formatIsoDate(rawDate) {
   if (!rawDate) return new Date().toISOString();
   try {
@@ -98,14 +111,22 @@ function formatIsoDate(rawDate) {
   return new Date().toISOString();
 }
 
-function parseDocToMetadata(fields, createTime) {
+/**
+ * Parse a Firestore document structure into PostMetadata
+ */
+function parseDocToMetadata(fields, createTime, updateTime) {
   if (!fields) return null;
 
   const title = extractFieldValue(fields, 'title', 'postTitle', 'name', 'headline');
   const rawDesc = extractFieldValue(fields, 'excerpt', 'description', 'summary', 'subtitle', 'content');
   const imageUrl = extractFieldValue(fields, 'coverImage', 'imageUrl', 'image', 'featuredImage', 'thumbnail', 'photo', 'banner', 'img', 'url');
-  const authorName = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author') || 'Julian Vance';
-  const rawTime = createTime || fields.createdAt?.stringValue || fields.publishedAt?.stringValue || fields.date?.stringValue;
+  
+  // Extract clean author name (never expose internal worker host names)
+  const rawAuthor = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author');
+  const authorName = (rawAuthor && !rawAuthor.includes('workers.dev') && !rawAuthor.includes('kaflea')) ? rawAuthor : 'Vertex Theory';
+  
+  const rawCreateTime = createTime || fields.createdAt?.stringValue || fields.publishedAt?.stringValue || fields.date?.stringValue;
+  const rawUpdateTime = updateTime || fields.updatedAt?.stringValue || rawCreateTime;
 
   if (title) {
     return {
@@ -113,7 +134,8 @@ function parseDocToMetadata(fields, createTime) {
       description: cleanTextSnippet(rawDesc) || 'Read the full publication on Vertex Theory.',
       imageUrl: imageUrl || '',
       url: '',
-      publishedTime: formatIsoDate(rawTime),
+      publishedTime: formatIsoDate(rawCreateTime),
+      modifiedTime: formatIsoDate(rawUpdateTime),
       authorName,
       publisherName: 'Vertex Theory',
     };
@@ -121,10 +143,14 @@ function parseDocToMetadata(fields, createTime) {
   return null;
 }
 
+/**
+ * Fetch post metadata from Firebase Firestore REST API dynamically with fallback strategies
+ */
 async function fetchPostFromFirestore(slugOrId, projectId) {
   const cleanSlug = decodeURIComponent(slugOrId).trim().toLowerCase();
   if (!cleanSlug) return null;
 
+  // 1. Check in-memory hardcoded fallback posts first
   const hardcoded = HARDCODED_POSTS.find(
     p => p.slug.toLowerCase() === cleanSlug || p.id.toLowerCase() === cleanSlug || slugifyText(p.title) === cleanSlug
   );
@@ -135,11 +161,13 @@ async function fetchPostFromFirestore(slugOrId, projectId) {
       imageUrl: hardcoded.coverImage,
       url: '',
       publishedTime: hardcoded.createdAt,
+      modifiedTime: hardcoded.createdAt,
       authorName: hardcoded.authorName,
       publisherName: 'Vertex Theory',
     };
   }
 
+  // 2. Fetch from Firestore REST API with API key
   try {
     const queryUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${FIRESTORE_DATABASE}/documents:runQuery?key=${FIREBASE_API_KEY}`;
     
@@ -170,7 +198,7 @@ async function fetchPostFromFirestore(slugOrId, projectId) {
       const results = await queryResponse.json();
       for (const item of results) {
         if (item.document && item.document.fields) {
-          const parsed = parseDocToMetadata(item.document.fields, item.document.createTime);
+          const parsed = parseDocToMetadata(item.document.fields, item.document.createTime, item.document.updateTime);
           if (parsed) return parsed;
         }
       }
@@ -202,7 +230,7 @@ async function fetchPostFromFirestore(slugOrId, projectId) {
             (docSlug && cleanSlug.includes(docSlug)) ||
             (cleanSlug && docSlug.includes(cleanSlug))
           ) {
-            const parsed = parseDocToMetadata(fields, doc.createTime);
+            const parsed = parseDocToMetadata(fields, doc.createTime, doc.updateTime);
             if (parsed) return parsed;
           }
         }
@@ -216,7 +244,7 @@ async function fetchPostFromFirestore(slugOrId, projectId) {
 
     if (directResponse.ok) {
       const directDoc = await directResponse.json();
-      const parsed = parseDocToMetadata(directDoc.fields, directDoc.createTime);
+      const parsed = parseDocToMetadata(directDoc.fields, directDoc.createTime, directDoc.updateTime);
       if (parsed) return parsed;
     }
   } catch (error) {
@@ -226,6 +254,9 @@ async function fetchPostFromFirestore(slugOrId, projectId) {
   return null;
 }
 
+/**
+ * Detect whether the User-Agent belongs to a social media link crawler, search bot, or validator
+ */
 function isSocialCrawler(userAgent) {
   const ua = (userAgent || '').toLowerCase();
   return (
@@ -255,18 +286,40 @@ function isSocialCrawler(userAgent) {
   );
 }
 
-function escapeHtml(str) {
-  if (!str) return '';
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
+/**
+ * Render a complete, standalone crawler HTML document with exact OpenGraph, Twitter, and Schema.org tags
+ */
 function renderCrawlerHtml(post, canonicalUrl) {
   const title = `${post.title} — Vertex Theory`;
+  const schemaJson = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.title,
+    description: post.description,
+    image: post.imageUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop',
+    datePublished: post.publishedTime,
+    dateModified: post.modifiedTime || post.publishedTime,
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': canonicalUrl,
+    },
+    author: {
+      '@type': 'Person',
+      name: post.authorName,
+      url: 'https://vertex-theory1.kaflea991.workers.dev/',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Vertex Theory',
+      logo: {
+        '@type': 'ImageObject',
+        url: 'https://vertex-theory1.kaflea991.workers.dev/icon-512.png',
+        width: 512,
+        height: 512,
+      },
+    },
+  }, null, 2);
+
   return `<!DOCTYPE html>
 <html lang="en" prefix="og: https://ogp.me/ns# article: https://ogp.me/ns/article#">
 <head>
@@ -275,6 +328,19 @@ function renderCrawlerHtml(post, canonicalUrl) {
   <title>${escapeHtml(title)}</title>
   <meta name="description" content="${escapeHtml(post.description)}">
   <link rel="canonical" href="${escapeHtml(canonicalUrl)}">
+
+  <!-- Favicon & Touch Icons (High-Res 512x512) -->
+  <link rel="icon" type="image/svg+xml" sizes="any" href="/favicon.svg">
+  <link rel="icon" type="image/svg+xml" sizes="512x512" href="/icon-512.svg">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png">
+
+  <!-- Author & Article Metadata -->
+  <meta name="author" content="${escapeHtml(post.authorName)}">
+  <meta property="article:author" content="${escapeHtml(post.authorName)}">
+  <meta property="article:publisher" content="https://vertex-theory1.kaflea991.workers.dev/">
+  <meta property="article:published_time" content="${escapeHtml(post.publishedTime)}">
+  <meta property="article:modified_time" content="${escapeHtml(post.modifiedTime || post.publishedTime)}">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:site_name" content="Vertex Theory">
@@ -289,18 +355,18 @@ function renderCrawlerHtml(post, canonicalUrl) {
   <meta property="og:image:height" content="630">
   <meta property="og:locale" content="en_US">
 
-  <!-- Article Specific -->
-  <meta property="article:published_time" content="${escapeHtml(post.publishedTime)}">
-  <meta property="article:author" content="${escapeHtml(post.authorName)}">
-  <meta property="article:publisher" content="https://vertex-theory1.kaflea991.workers.dev">
-
-  <!-- Twitter -->
+  <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@vertextheory">
   <meta name="twitter:title" content="${escapeHtml(post.title)}">
   <meta name="twitter:description" content="${escapeHtml(post.description)}">
   <meta name="twitter:image" content="${escapeHtml(post.imageUrl)}">
   <meta name="twitter:image:alt" content="${escapeHtml(post.title)}">
+
+  <!-- Structured Data (Schema.org JSON-LD BlogPosting) -->
+  <script type="application/ld+json">
+${schemaJson}
+  </script>
 </head>
 <body>
   <h1>${escapeHtml(post.title)}</h1>
@@ -310,11 +376,22 @@ function renderCrawlerHtml(post, canonicalUrl) {
 </html>`;
 }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const userAgent = request.headers.get('user-agent') || '';
 
+    // 1. Extract dynamic post slug parameter strictly from incoming URL
     let postSlug = url.searchParams.get('post') || url.searchParams.get('p') || url.searchParams.get('article');
 
     if (!postSlug && url.pathname.startsWith('/post/')) {
@@ -333,6 +410,7 @@ export default {
       postSlug = postSlug.trim();
     }
 
+    // 2. If this is a Social Media Crawler requesting a post URL:
     if (postSlug && isSocialCrawler(userAgent)) {
       const postData = await fetchPostFromFirestore(postSlug, FIREBASE_PROJECT_ID);
       if (postData) {
@@ -351,6 +429,7 @@ export default {
       }
     }
 
+    // 3. Fetch the origin response (static assets or proxied origin)
     let originResponse;
     if (env.ASSETS) {
       originResponse = await env.ASSETS.fetch(request);
@@ -359,10 +438,13 @@ export default {
     }
 
     const contentType = originResponse.headers.get('content-type') || '';
+    
+    // If not an HTML response, return asset as-is with origin headers
     if (!contentType.includes('text/html')) {
       return originResponse;
     }
 
+    // If no post parameter is present in URL, serve standard default index.html
     if (!postSlug) {
       const headers = new Headers(originResponse.headers);
       headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
@@ -374,8 +456,10 @@ export default {
       });
     }
 
+    // 4. Fetch exact matching metadata dynamically from Firebase Firestore
     const postData = await fetchPostFromFirestore(postSlug, FIREBASE_PROJECT_ID);
     
+    // If the requested slug is NOT found in Firestore, fallback to standard site index.html
     if (!postData) {
       const fallbackHeaders = new Headers(originResponse.headers);
       fallbackHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0');
@@ -392,51 +476,97 @@ export default {
     postData.url = url.href;
     const formattedTitle = `${postData.title} — Vertex Theory`;
 
+    const schemaJson = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: postData.title,
+      description: postData.description,
+      image: postData.imageUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop',
+      datePublished: postData.publishedTime,
+      dateModified: postData.modifiedTime || postData.publishedTime,
+      mainEntityOfPage: {
+        '@type': 'WebPage',
+        '@id': postData.url,
+      },
+      author: {
+        '@type': 'Person',
+        name: postData.authorName,
+        url: 'https://vertex-theory1.kaflea991.workers.dev/',
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Vertex Theory',
+        logo: {
+          '@type': 'ImageObject',
+          url: 'https://vertex-theory1.kaflea991.workers.dev/icon-512.png',
+          width: 512,
+          height: 512,
+        },
+      },
+    }, null, 2);
+
     let seenAuthor = false;
     let seenArticleAuthor = false;
     let seenPublishedTime = false;
+    let seenModifiedTime = false;
     let seenPublisher = false;
     let seenOgImage = false;
     let seenOgSecureImage = false;
     let seenOgUrl = false;
     let seenTwitterImage = false;
     let seenCanonical = false;
+    let seenLdJson = false;
 
+    // 5. Use Cloudflare HTMLRewriter to rewrite dynamic meta tags on the fly
     const rewriter = new HTMLRewriter()
+      // Overwrite <title>
       .on('title', {
         element(el) {
           el.setInnerContent(formattedTitle);
         },
       })
+      // Overwrite standard meta description
       .on('meta[name="description"]', {
         element(el) {
           el.setAttribute('content', postData.description);
         },
       })
+      // Overwrite author meta tag
       .on('meta[name="author"]', {
         element(el) {
           seenAuthor = true;
           el.setAttribute('content', postData.authorName);
         },
       })
+      // Overwrite article:author
       .on('meta[property="article:author"]', {
         element(el) {
           seenArticleAuthor = true;
           el.setAttribute('content', postData.authorName);
         },
       })
+      // Overwrite article:published_time
       .on('meta[property="article:published_time"]', {
         element(el) {
           seenPublishedTime = true;
           el.setAttribute('content', postData.publishedTime);
         },
       })
+      // Overwrite article:modified_time
+      .on('meta[property="article:modified_time"]', {
+        element(el) {
+          seenModifiedTime = true;
+          el.setAttribute('content', postData.modifiedTime || postData.publishedTime);
+        },
+      })
+      // Overwrite article:publisher
       .on('meta[property="article:publisher"]', {
         element(el) {
           seenPublisher = true;
           el.setAttribute('content', postData.publisherName);
         },
       })
+      // Overwrite Open Graph tags
       .on('meta[property="og:title"]', {
         element(el) {
           el.setAttribute('content', postData.title);
@@ -484,6 +614,7 @@ export default {
           el.setAttribute('content', 'en_US');
         },
       })
+      // Overwrite Twitter Card tags
       .on('meta[name="twitter:card"]', {
         element(el) {
           el.setAttribute('content', 'summary_large_image');
@@ -512,12 +643,21 @@ export default {
           el.setAttribute('content', postData.title);
         },
       })
+      // Overwrite canonical link
       .on('link[rel="canonical"]', {
         element(el) {
           seenCanonical = true;
           el.setAttribute('href', postData.url);
         },
       })
+      // Overwrite structured data script
+      .on('script[type="application/ld+json"]', {
+        element(el) {
+          seenLdJson = true;
+          el.setInnerContent(schemaJson, { html: false });
+        },
+      })
+      // Head injector: append any missing tags
       .on('head', {
         element(el) {
           if (!seenAuthor) {
@@ -528,6 +668,9 @@ export default {
           }
           if (!seenPublishedTime) {
             el.append(`<meta property="article:published_time" content="${escapeHtml(postData.publishedTime)}" />`, { html: true });
+          }
+          if (!seenModifiedTime) {
+            el.append(`<meta property="article:modified_time" content="${escapeHtml(postData.modifiedTime || postData.publishedTime)}" />`, { html: true });
           }
           if (!seenPublisher) {
             el.append(`<meta property="article:publisher" content="${escapeHtml(postData.publisherName)}" />`, { html: true });
@@ -547,11 +690,15 @@ export default {
           if (!seenCanonical) {
             el.append(`<link rel="canonical" href="${escapeHtml(postData.url)}" />`, { html: true });
           }
+          if (!seenLdJson) {
+            el.append(`<script type="application/ld+json">\n${schemaJson}\n</script>`, { html: true });
+          }
         },
       });
 
     const transformedResponse = rewriter.transform(originResponse);
     
+    // Set strict cache-busting headers
     const dynamicHeaders = new Headers(transformedResponse.headers);
     dynamicHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0');
     dynamicHeaders.set('Pragma', 'no-cache');
@@ -565,4 +712,3 @@ export default {
     });
   },
 };
-

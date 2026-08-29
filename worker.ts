@@ -37,6 +37,7 @@ interface PostMetadata {
   imageUrl: string;
   url: string;
   publishedTime: string;
+  modifiedTime: string;
   authorName: string;
   publisherName: string;
 }
@@ -144,14 +145,19 @@ function formatIsoDate(rawDate?: string): string {
 /**
  * Parse a Firestore document structure into PostMetadata
  */
-function parseDocToMetadata(fields: Record<string, FirestoreValue> | undefined, createTime?: string): PostMetadata | null {
+function parseDocToMetadata(fields: Record<string, FirestoreValue> | undefined, createTime?: string, updateTime?: string): PostMetadata | null {
   if (!fields) return null;
 
   const title = extractFieldValue(fields, 'title', 'postTitle', 'name', 'headline');
   const rawDesc = extractFieldValue(fields, 'excerpt', 'description', 'summary', 'subtitle', 'content');
   const imageUrl = extractFieldValue(fields, 'coverImage', 'imageUrl', 'image', 'featuredImage', 'thumbnail', 'photo', 'banner', 'img', 'url');
-  const authorName = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author') || 'Julian Vance';
-  const rawTime = createTime || fields.createdAt?.stringValue || fields.publishedAt?.stringValue || fields.date?.stringValue;
+  
+  // Extract clean author name (never expose internal worker host names)
+  const rawAuthor = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author');
+  const authorName = (rawAuthor && !rawAuthor.includes('workers.dev') && !rawAuthor.includes('kaflea')) ? rawAuthor : 'Vertex Theory';
+  
+  const rawCreateTime = createTime || fields.createdAt?.stringValue || fields.publishedAt?.stringValue || fields.date?.stringValue;
+  const rawUpdateTime = updateTime || fields.updatedAt?.stringValue || rawCreateTime;
 
   if (title) {
     return {
@@ -159,7 +165,8 @@ function parseDocToMetadata(fields: Record<string, FirestoreValue> | undefined, 
       description: cleanTextSnippet(rawDesc) || 'Read the full publication on Vertex Theory.',
       imageUrl: imageUrl || '',
       url: '',
-      publishedTime: formatIsoDate(rawTime),
+      publishedTime: formatIsoDate(rawCreateTime),
+      modifiedTime: formatIsoDate(rawUpdateTime),
       authorName,
       publisherName: 'Vertex Theory',
     };
@@ -185,6 +192,7 @@ async function fetchPostFromFirestore(slugOrId: string, projectId: string): Prom
       imageUrl: hardcoded.coverImage,
       url: '',
       publishedTime: hardcoded.createdAt,
+      modifiedTime: hardcoded.createdAt,
       authorName: hardcoded.authorName,
       publisherName: 'Vertex Theory',
     };
@@ -219,23 +227,23 @@ async function fetchPostFromFirestore(slugOrId: string, projectId: string): Prom
     });
 
     if (queryResponse.ok) {
-      const results = (await queryResponse.json()) as Array<{ document?: { fields?: Record<string, FirestoreValue>; createTime?: string } }>;
+      const results = (await queryResponse.json()) as Array<{ document?: { fields?: Record<string, FirestoreValue>; createTime?: string; updateTime?: string } }>;
       for (const item of results) {
         if (item.document && item.document.fields) {
-          const parsed = parseDocToMetadata(item.document.fields, item.document.createTime);
+          const parsed = parseDocToMetadata(item.document.fields, item.document.createTime, item.document.updateTime);
           if (parsed) return parsed;
         }
       }
     }
 
-    // Strategy 2: List collection documents directly (robust against slug variations, missing query indexes, or case sensitivity)
+    // Strategy 2: List collection documents directly with pageSize=100 and fuzzy-match
     const listUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${FIRESTORE_DATABASE}/documents/${POSTS_COLLECTION}?pageSize=100&key=${FIREBASE_API_KEY}`;
     const listResponse = await fetch(listUrl, {
       headers: { 'Cache-Control': 'no-cache' }
     });
 
     if (listResponse.ok) {
-      const listData = (await listResponse.json()) as { documents?: Array<{ name?: string; fields?: Record<string, FirestoreValue>; createTime?: string }> };
+      const listData = (await listResponse.json()) as { documents?: Array<{ name?: string; fields?: Record<string, FirestoreValue>; createTime?: string; updateTime?: string }> };
       if (listData.documents && Array.isArray(listData.documents)) {
         for (const doc of listData.documents) {
           const fields = doc.fields;
@@ -255,22 +263,22 @@ async function fetchPostFromFirestore(slugOrId: string, projectId: string): Prom
             (docSlug && cleanSlug.includes(docSlug)) ||
             (cleanSlug && docSlug.includes(cleanSlug))
           ) {
-            const parsed = parseDocToMetadata(fields, doc.createTime);
+            const parsed = parseDocToMetadata(fields, doc.createTime, doc.updateTime);
             if (parsed) return parsed;
           }
         }
       }
     }
 
-    // Strategy 3: Direct document fetch by ID
+    // Strategy 3: Direct document lookup by Document ID
     const directDocUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${FIRESTORE_DATABASE}/documents/${POSTS_COLLECTION}/${encodeURIComponent(cleanSlug)}?key=${FIREBASE_API_KEY}`;
     const directResponse = await fetch(directDocUrl, {
       headers: { 'Cache-Control': 'no-cache' }
     });
 
     if (directResponse.ok) {
-      const directDoc = (await directResponse.json()) as { fields?: Record<string, FirestoreValue>; createTime?: string };
-      const parsed = parseDocToMetadata(directDoc.fields, directDoc.createTime);
+      const directDoc = (await directResponse.json()) as { fields?: Record<string, FirestoreValue>; createTime?: string; updateTime?: string };
+      const parsed = parseDocToMetadata(directDoc.fields, directDoc.createTime, directDoc.updateTime);
       if (parsed) return parsed;
     }
   } catch (error) {
@@ -281,7 +289,7 @@ async function fetchPostFromFirestore(slugOrId: string, projectId: string): Prom
 }
 
 /**
- * Check if the User-Agent belongs to a social media crawler/scraper
+ * Detect whether the User-Agent belongs to a social media link crawler, search bot, or validator
  */
 function isSocialCrawler(userAgent: string): boolean {
   const ua = (userAgent || '').toLowerCase();
@@ -313,10 +321,39 @@ function isSocialCrawler(userAgent: string): boolean {
 }
 
 /**
- * Render a complete, standalone crawler HTML document with exact OpenGraph and Twitter tags
+ * Render a complete, standalone crawler HTML document with exact OpenGraph, Twitter, and Schema.org tags
  */
 function renderCrawlerHtml(post: PostMetadata, canonicalUrl: string): string {
   const title = `${post.title} — Vertex Theory`;
+  const schemaJson = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.title,
+    description: post.description,
+    image: post.imageUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop',
+    datePublished: post.publishedTime,
+    dateModified: post.modifiedTime || post.publishedTime,
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': canonicalUrl,
+    },
+    author: {
+      '@type': 'Person',
+      name: post.authorName,
+      url: 'https://vertex-theory1.kaflea991.workers.dev/',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Vertex Theory',
+      logo: {
+        '@type': 'ImageObject',
+        url: 'https://vertex-theory1.kaflea991.workers.dev/icon-512.png',
+        width: 512,
+        height: 512,
+      },
+    },
+  }, null, 2);
+
   return `<!DOCTYPE html>
 <html lang="en" prefix="og: https://ogp.me/ns# article: https://ogp.me/ns/article#">
 <head>
@@ -325,6 +362,19 @@ function renderCrawlerHtml(post: PostMetadata, canonicalUrl: string): string {
   <title>${escapeHtml(title)}</title>
   <meta name="description" content="${escapeHtml(post.description)}">
   <link rel="canonical" href="${escapeHtml(canonicalUrl)}">
+
+  <!-- Favicon & Touch Icons (High-Res 512x512) -->
+  <link rel="icon" type="image/svg+xml" sizes="any" href="/favicon.svg">
+  <link rel="icon" type="image/svg+xml" sizes="512x512" href="/icon-512.svg">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png">
+
+  <!-- Author & Article Metadata -->
+  <meta name="author" content="${escapeHtml(post.authorName)}">
+  <meta property="article:author" content="${escapeHtml(post.authorName)}">
+  <meta property="article:publisher" content="https://vertex-theory1.kaflea991.workers.dev/">
+  <meta property="article:published_time" content="${escapeHtml(post.publishedTime)}">
+  <meta property="article:modified_time" content="${escapeHtml(post.modifiedTime || post.publishedTime)}">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:site_name" content="Vertex Theory">
@@ -339,18 +389,18 @@ function renderCrawlerHtml(post: PostMetadata, canonicalUrl: string): string {
   <meta property="og:image:height" content="630">
   <meta property="og:locale" content="en_US">
 
-  <!-- Article Specific -->
-  <meta property="article:published_time" content="${escapeHtml(post.publishedTime)}">
-  <meta property="article:author" content="${escapeHtml(post.authorName)}">
-  <meta property="article:publisher" content="https://vertex-theory1.kaflea991.workers.dev">
-
-  <!-- Twitter -->
+  <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@vertextheory">
   <meta name="twitter:title" content="${escapeHtml(post.title)}">
   <meta name="twitter:description" content="${escapeHtml(post.description)}">
   <meta name="twitter:image" content="${escapeHtml(post.imageUrl)}">
   <meta name="twitter:image:alt" content="${escapeHtml(post.title)}">
+
+  <!-- Structured Data (Schema.org JSON-LD BlogPosting) -->
+  <script type="application/ld+json">
+${schemaJson}
+  </script>
 </head>
 <body>
   <h1>${escapeHtml(post.title)}</h1>
@@ -376,7 +426,6 @@ export default {
     const userAgent = request.headers.get('user-agent') || '';
 
     // 1. Extract dynamic post slug parameter strictly from incoming URL
-    // Matches ?post=your-post-slug, ?p=slug, ?article=slug, /post/your-post-slug, or /article/your-post-slug
     let postSlug = url.searchParams.get('post') || url.searchParams.get('p') || url.searchParams.get('article');
 
     if (!postSlug && url.pathname.startsWith('/post/')) {
@@ -462,15 +511,46 @@ export default {
     postData.url = url.href;
     const formattedTitle = `${postData.title} — Vertex Theory`;
 
+    const schemaJson = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: postData.title,
+      description: postData.description,
+      image: postData.imageUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop',
+      datePublished: postData.publishedTime,
+      dateModified: postData.modifiedTime || postData.publishedTime,
+      mainEntityOfPage: {
+        '@type': 'WebPage',
+        '@id': postData.url,
+      },
+      author: {
+        '@type': 'Person',
+        name: postData.authorName,
+        url: 'https://vertex-theory1.kaflea991.workers.dev/',
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Vertex Theory',
+        logo: {
+          '@type': 'ImageObject',
+          url: 'https://vertex-theory1.kaflea991.workers.dev/icon-512.png',
+          width: 512,
+          height: 512,
+        },
+      },
+    }, null, 2);
+
     let seenAuthor = false;
     let seenArticleAuthor = false;
     let seenPublishedTime = false;
+    let seenModifiedTime = false;
     let seenPublisher = false;
     let seenOgImage = false;
     let seenOgSecureImage = false;
     let seenOgUrl = false;
     let seenTwitterImage = false;
     let seenCanonical = false;
+    let seenLdJson = false;
 
     // 5. Use Cloudflare HTMLRewriter to rewrite dynamic meta tags on the fly
     const rewriter = new HTMLRewriter()
@@ -505,6 +585,13 @@ export default {
         element(el) {
           seenPublishedTime = true;
           el.setAttribute('content', postData.publishedTime);
+        },
+      })
+      // Overwrite article:modified_time
+      .on('meta[property="article:modified_time"]', {
+        element(el) {
+          seenModifiedTime = true;
+          el.setAttribute('content', postData.modifiedTime || postData.publishedTime);
         },
       })
       // Overwrite article:publisher
@@ -598,6 +685,13 @@ export default {
           el.setAttribute('href', postData.url);
         },
       })
+      // Overwrite structured data script
+      .on('script[type="application/ld+json"]', {
+        element(el) {
+          seenLdJson = true;
+          el.setInnerContent(schemaJson, { html: false });
+        },
+      })
       // Head injector: append any missing tags
       .on('head', {
         element(el) {
@@ -609,6 +703,9 @@ export default {
           }
           if (!seenPublishedTime) {
             el.append(`<meta property="article:published_time" content="${escapeHtml(postData.publishedTime)}" />`, { html: true });
+          }
+          if (!seenModifiedTime) {
+            el.append(`<meta property="article:modified_time" content="${escapeHtml(postData.modifiedTime || postData.publishedTime)}" />`, { html: true });
           }
           if (!seenPublisher) {
             el.append(`<meta property="article:publisher" content="${escapeHtml(postData.publisherName)}" />`, { html: true });
@@ -627,6 +724,9 @@ export default {
           }
           if (!seenCanonical) {
             el.append(`<link rel="canonical" href="${escapeHtml(postData.url)}" />`, { html: true });
+          }
+          if (!seenLdJson) {
+            el.append(`<script type="application/ld+json">\n${schemaJson}\n</script>`, { html: true });
           }
         },
       });
@@ -647,4 +747,3 @@ export default {
     });
   },
 };
-

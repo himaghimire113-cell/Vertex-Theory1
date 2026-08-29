@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2d6a4f" />
+      <stop offset="70%" stop-color="#1b4332" />
+      <stop offset="100%" stop-color="#081c15" />
+    </radialGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  <!-- Background Circle (512x512) -->
+  <circle cx="256" cy="256" r="240" fill="url(#bgGrad)" stroke="#40916c" stroke-width="8" />
+  
+  <!-- Geometric Branch / Organic Leaf Emblem -->
+  <path d="M317 154C292 118 246 108 210 123C174 138 148 169 148 215C148 261 174 307 210 343C241 374 271 399 271 420C271 420 312 420 333 379C353 338 343 307 338 287C358 276 369 256 364 235C353 215 343 215 348 195C353 179 343 164 317 154Z" fill="#2d6a4f" opacity="0.9" />
+  <path d="M159 210C159 138 210 102 271 102C271 154 225 210 159 210Z" fill="#40916c" />
+  
+  <!-- Constellation Nodes & Connecting Rays -->
+  <path d="M169 200C195 179 230 143 261 113" stroke="#d4a373" stroke-width="10" stroke-linecap="round" />
+  <line x1="225" y1="251" x2="271" y2="230" stroke="#d4a373" stroke-width="10" stroke-linecap="round" />
+  <line x1="271" y1="230" x2="297" y2="189" stroke="#d4a373" stroke-width="10" stroke-linecap="round" />
+  <line x1="297" y1="189" x2="323" y2="215" stroke="#d4a373" stroke-width="10" stroke-linecap="round" />
+  
+  <!-- Star Points / Vertices -->
+  <circle cx="225" cy="251" r="18" fill="#d4a373" filter="url(#glow)" />
+  <circle cx="271" cy="230" r="20" fill="#c59b48" filter="url(#glow)" />
+  <circle cx="297" cy="189" r="15" fill="#d4a373" filter="url(#glow)" />
+  <circle cx="323" cy="215" r="18" fill="#c59b48" filter="url(#glow)" />
+</svg>
