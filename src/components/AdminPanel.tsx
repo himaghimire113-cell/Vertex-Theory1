@@ -49,6 +49,7 @@ import {
   navigateTo 
 } from '../utils/helpers';
 import { Logo } from './Logo';
+import { ArticleRenderer } from './ArticleRenderer';
 import { 
   saveOrUpdatePost, 
   removePost, 
@@ -113,6 +114,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [affiliateItems, setAffiliateItems] = useState<Array<{ text: string; url: string; label: string }>>([]);
   const [savingPost, setSavingPost] = useState(false);
   const [postSaveSuccess, setPostSaveSuccess] = useState(false);
+  const [editorViewMode, setEditorViewMode] = useState<'write' | 'preview'>('write');
 
   // Appearance State
   const [appearanceData, setAppearanceData] = useState<SiteSettings>(settings);
@@ -854,20 +856,169 @@ service cloud.firestore {
                 />
               </div>
 
-              {/* Main Content Markdown */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-mono text-[#9ca3af]">Post Content (Markdown supported)</label>
-                  <span className="text-[11px] font-mono text-[#717688]">Use ## for H2, &gt; for quotes, \`\`\` for code</span>
+              {/* Main Content (HTML & Markdown supported) */}
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-mono text-[#9ca3af]">Post Content</label>
+                    <div className="inline-flex rounded-lg bg-[#0e1015] p-0.5 border border-[#232733]">
+                      <button
+                        type="button"
+                        onClick={() => setEditorViewMode('write')}
+                        className={`px-2.5 py-1 rounded text-[11px] font-mono transition-colors ${
+                          editorViewMode === 'write'
+                            ? 'bg-[#ff5533] text-white font-semibold'
+                            : 'text-[#9ca3af] hover:text-white'
+                        }`}
+                      >
+                        Write
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditorViewMode('preview')}
+                        className={`px-2.5 py-1 rounded text-[11px] font-mono flex items-center gap-1 transition-colors ${
+                          editorViewMode === 'preview'
+                            ? 'bg-[#ff5533] text-white font-semibold'
+                            : 'text-[#9ca3af] hover:text-white'
+                        }`}
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>Live Preview</span>
+                      </button>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-[#717688]">HTML tags & Markdown fully supported</span>
                 </div>
-                <textarea
-                  rows={14}
-                  required
-                  value={postContent}
-                  onChange={(e) => handleContentChange(e.target.value)}
-                  placeholder="Write your article markdown..."
-                  className="w-full p-4 rounded-xl bg-[#0e1015] border border-[#232733] text-white font-mono text-xs leading-relaxed focus:outline-none focus:border-[#ff5533]"
-                />
+
+                {/* HTML Tags Quick Toolbar */}
+                {editorViewMode === 'write' && (
+                  <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg bg-[#12141c] border border-[#232733] text-[11px] font-mono text-[#c8ccd6]">
+                    <span className="text-[10px] text-[#717688] uppercase tracking-wider pr-1 font-bold">Quick Tags:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleContentChange(postContent + '\n\n<h2>Section Heading</h2>\n')}
+                      className="px-2 py-0.5 rounded bg-[#1b1f2b] hover:bg-[#282d3e] text-[#ff7755] transition-colors"
+                      title="Insert <h2>"
+                    >
+                      &lt;h2&gt;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleContentChange(postContent + '\n\n<h3>Sub-section</h3>\n')}
+                      className="px-2 py-0.5 rounded bg-[#1b1f2b] hover:bg-[#282d3e] text-[#ff7755] transition-colors"
+                      title="Insert <h3>"
+                    >
+                      &lt;h3&gt;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleContentChange(postContent + '\n\n<p>Your paragraph text here...</p>\n')}
+                      className="px-2 py-0.5 rounded bg-[#1b1f2b] hover:bg-[#282d3e] text-white transition-colors"
+                      title="Insert <p>"
+                    >
+                      &lt;p&gt;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleContentChange(postContent + '<strong>Bold text</strong>')}
+                      className="px-2 py-0.5 rounded bg-[#1b1f2b] hover:bg-[#282d3e] text-white font-bold transition-colors"
+                      title="Insert <strong>"
+                    >
+                      &lt;strong&gt;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleContentChange(postContent + '<em>Italic text</em>')}
+                      className="px-2 py-0.5 rounded bg-[#1b1f2b] hover:bg-[#282d3e] text-white italic transition-colors"
+                      title="Insert <em>"
+                    >
+                      &lt;em&gt;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleContentChange(postContent + '\n\n<ul>\n  <li>Bullet item 1</li>\n  <li>Bullet item 2</li>\n</ul>\n')}
+                      className="px-2 py-0.5 rounded bg-[#1b1f2b] hover:bg-[#282d3e] text-white transition-colors"
+                      title="Insert <ul><li>"
+                    >
+                      &lt;ul&gt;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleContentChange(postContent + '\n\n<ol>\n  <li>Numbered step 1</li>\n  <li>Numbered step 2</li>\n</ol>\n')}
+                      className="px-2 py-0.5 rounded bg-[#1b1f2b] hover:bg-[#282d3e] text-white transition-colors"
+                      title="Insert <ol><li>"
+                    >
+                      &lt;ol&gt;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleContentChange(postContent + '<a href="https://example.com" target="_blank">Link text</a>')}
+                      className="px-2 py-0.5 rounded bg-[#1b1f2b] hover:bg-[#282d3e] text-[#60a5fa] transition-colors"
+                      title="Insert <a>"
+                    >
+                      &lt;a&gt;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleContentChange(postContent + '\n\n<blockquote>A poignant quote or insight.</blockquote>\n')}
+                      className="px-2 py-0.5 rounded bg-[#1b1f2b] hover:bg-[#282d3e] text-[#fcd34d] transition-colors"
+                      title="Insert <blockquote>"
+                    >
+                      &lt;blockquote&gt;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleContentChange(postContent + '\n\n<img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200" alt="Image description" />\n')}
+                      className="px-2 py-0.5 rounded bg-[#1b1f2b] hover:bg-[#282d3e] text-[#a78bfa] transition-colors"
+                      title="Insert <img>"
+                    >
+                      &lt;img&gt;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleContentChange(postContent + '\n\n<table>\n  <thead>\n    <tr>\n      <th>Header 1</th>\n      <th>Header 2</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>Data 1</td>\n      <td>Data 2</td>\n    </tr>\n  </tbody>\n</table>\n')}
+                      className="px-2 py-0.5 rounded bg-[#1b1f2b] hover:bg-[#282d3e] text-[#34d399] transition-colors"
+                      title="Insert <table><tr><th><td>"
+                    >
+                      &lt;table&gt;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleContentChange(postContent + '\n\n<hr />\n')}
+                      className="px-2 py-0.5 rounded bg-[#1b1f2b] hover:bg-[#282d3e] text-white transition-colors"
+                      title="Insert <hr>"
+                    >
+                      &lt;hr&gt;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleContentChange(postContent + '<br />')}
+                      className="px-2 py-0.5 rounded bg-[#1b1f2b] hover:bg-[#282d3e] text-white transition-colors"
+                      title="Insert <br>"
+                    >
+                      &lt;br&gt;
+                    </button>
+                  </div>
+                )}
+
+                {editorViewMode === 'write' ? (
+                  <textarea
+                    rows={16}
+                    required
+                    value={postContent}
+                    onChange={(e) => handleContentChange(e.target.value)}
+                    placeholder="Write article in HTML (<h2>, <p>, <table>, <img>, etc.) or Markdown..."
+                    className="w-full p-4 rounded-xl bg-[#0e1015] border border-[#232733] text-white font-mono text-xs leading-relaxed focus:outline-none focus:border-[#ff5533]"
+                  />
+                ) : (
+                  <div className="w-full min-h-[350px] p-6 rounded-xl bg-[#0e1015] border border-[#232733] overflow-y-auto max-h-[500px]">
+                    <div className="mb-4 pb-2 border-b border-[#202430] flex items-center justify-between text-xs font-mono text-[#717688]">
+                      <span>LIVE ARTICLE PREVIEW</span>
+                      <span>{postReadTime || calculateReadTime(postContent)}</span>
+                    </div>
+                    <ArticleRenderer content={postContent || '<p><em>No content entered yet...</em></p>'} showNativeAd={false} />
+                  </div>
+                )}
               </div>
 
               {/* Affiliate Links Builder */}

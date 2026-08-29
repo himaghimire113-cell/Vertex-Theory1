@@ -30,6 +30,7 @@ import {
 import { SponsorBanner } from './SponsorBanner';
 import { NativeBannerAd } from './NativeBannerAd';
 import { NewsletterSection } from './NewsletterSection';
+import { ArticleRenderer } from './ArticleRenderer';
 
 interface PostDetailProps {
   post: Post;
@@ -198,118 +199,6 @@ export const PostDetail: React.FC<PostDetailProps> = ({
     }
   };
 
-  // Helper to render rich markdown adhering strictly to typographic hierarchy rules
-  const renderArticleBody = (rawContent: string) => {
-    if (!rawContent) return null;
-
-    const paragraphs = rawContent.split('\n\n');
-    // Calculate 70% mark through the post content for single native banner ad placement
-    const targetPoint = paragraphs.length > 2 ? Math.floor(paragraphs.length * 0.7) : 1;
-    const elements: React.ReactNode[] = [];
-
-    paragraphs.forEach((block, idx) => {
-      const trimmed = block.trim();
-      if (!trimmed) return;
-
-      let renderedEl: React.ReactNode = null;
-
-      // Custom Affiliate Callout Tag [AFFILIATE: Product | url="https..." | badge="Hardware Pick"]
-      if (trimmed.startsWith('[AFFILIATE:') || trimmed.startsWith('[affiliate:')) {
-        const titleMatch = trimmed.match(/\[AFFILIATE:\s*([^|\]]+)/i);
-        const urlMatch = trimmed.match(/url=["']([^"']+)["']/i);
-        const badgeMatch = trimmed.match(/badge=["']([^"']+)["']/i);
-
-        const title = titleMatch ? titleMatch[1].trim() : 'Recommended Resource';
-        const url = urlMatch ? urlMatch[1] : '#';
-        const badge = badgeMatch ? badgeMatch[1] : 'Affiliate Partner';
-
-        renderedEl = (
-          <div
-            key={`affiliate-${idx}`}
-            className="my-8 p-5 sm:p-6 rounded-2xl border border-[var(--color-accent-border)] bg-[var(--color-surface)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
-          >
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--color-accent)] uppercase font-semibold tracking-wider">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{badge}</span>
-              </div>
-              <h5 className="font-heading font-semibold text-lg text-[var(--color-text-primary)]">
-                {title}
-              </h5>
-              <p className="text-xs sm:text-sm text-[var(--color-text-muted)] font-body max-w-[65ch]">
-                Curated and tested by the Vertex Theory editorial desk.
-              </p>
-            </div>
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer sponsored"
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-xs font-semibold tracking-wide transition-colors shrink-0 shadow-sm"
-            >
-              <span>View Resource</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-          </div>
-        );
-      } else if (trimmed.startsWith('## ')) {
-        renderedEl = (
-          <h2 
-            key={`h2-${idx}`} 
-            className="font-heading font-semibold text-[26px] md:text-[30px] leading-[1.3] text-[var(--color-text-primary)] mt-7 md:mt-8 mb-3.5 tracking-[-0.015em]"
-          >
-            {trimmed.replace('## ', '')}
-          </h2>
-        );
-      } else if (trimmed.startsWith('### ')) {
-        renderedEl = (
-          <h3 
-            key={`h3-${idx}`} 
-            className="font-heading font-semibold text-[20px] md:text-[22px] leading-[1.3] text-[var(--color-text-primary)] mt-6 md:mt-7 mb-3 tracking-[-0.01em]"
-          >
-            {trimmed.replace('### ', '')}
-          </h3>
-        );
-      } else if (trimmed.startsWith('> ')) {
-        renderedEl = (
-          <blockquote 
-            key={`quote-${idx}`} 
-            className="border-l-4 border-[var(--color-accent)] pl-5 sm:pl-6 my-7 py-2.5 font-heading font-medium text-[17px] sm:text-[19px] leading-[1.6] text-[var(--color-text-primary)] bg-[var(--color-accent-subtle)] rounded-r-xl"
-          >
-            {trimmed.replace(/^>\s*/, '').replace(/"/g, '')}
-          </blockquote>
-        );
-      } else if (trimmed.startsWith('```')) {
-        const codeContent = trimmed.replace(/^```[a-z]*\n?/i, '').replace(/```$/, '');
-        renderedEl = (
-          <pre 
-            key={`code-${idx}`} 
-            className="article-code-block font-mono font-normal text-[14px] md:text-[15px] leading-[1.5] p-5 rounded-xl bg-[var(--color-code-bg)] text-[var(--color-code-text)] border border-[var(--color-code-border)] overflow-x-auto max-w-full my-7 shadow-md"
-          >
-            <code>{codeContent}</code>
-          </pre>
-        );
-      } else {
-        renderedEl = (
-          <p 
-            key={`p-${idx}`} 
-            className="font-body font-normal text-[16px] md:text-[18px] leading-[1.7] max-w-[65ch] text-[var(--color-text-secondary)] mb-6 break-words"
-          >
-            {trimmed}
-          </p>
-        );
-      }
-
-      elements.push(renderedEl);
-
-      // Inject Native Banner Ad exactly once at approximately 70% of the post content
-      if (idx === targetPoint) {
-        elements.push(<NativeBannerAd key="seventy-percent-native-ad" />);
-      }
-    });
-
-    return elements;
-  };
-
   const relatedPosts = allPosts
     .filter((p) => p.id !== post.id && p.published)
     .slice(0, 2);
@@ -438,8 +327,8 @@ export const PostDetail: React.FC<PostDetailProps> = ({
         <SponsorBanner sponsor={settings.sponsorBanner} />
 
         {/* Article Body */}
-        <div className="article-content pt-4 pb-12">
-          {renderArticleBody(post.content)}
+        <div className="pt-4 pb-12">
+          <ArticleRenderer content={post.content} />
         </div>
 
         {/* Embedded Affiliate Links Section if defined */}
