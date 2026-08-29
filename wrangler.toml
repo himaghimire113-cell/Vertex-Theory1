@@ -1,4 +1,4 @@
-name = "vertex-theory"
+name = "vertex-theory1"
 main = "worker.ts"
 compatibility_date = "2024-09-01"
 
