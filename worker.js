@@ -121,7 +121,6 @@ function parseDocToMetadata(fields, createTime, updateTime) {
   const rawDesc = extractFieldValue(fields, 'excerpt', 'description', 'summary', 'subtitle', 'content');
   const imageUrl = extractFieldValue(fields, 'coverImage', 'imageUrl', 'image', 'featuredImage', 'thumbnail', 'photo', 'banner', 'img', 'url');
   
-  // Extract clean author name (never expose internal worker host names)
   const rawAuthor = fields.author?.mapValue?.fields?.name?.stringValue || extractFieldValue(fields, 'authorName', 'author');
   const authorName = (rawAuthor && !rawAuthor.includes('workers.dev') && !rawAuthor.includes('kaflea')) ? rawAuthor : 'Vertex Theory';
   
@@ -148,6 +147,7 @@ function parseDocToMetadata(fields, createTime, updateTime) {
  */
 async function fetchPostFromFirestore(slugOrId, projectId) {
   const cleanSlug = decodeURIComponent(slugOrId).trim().toLowerCase();
+  console.log('[Worker Debug] fetchPostFromFirestore called with raw:', slugOrId, '-> cleanSlug:', cleanSlug, 'projectId:', projectId);
   if (!cleanSlug) return null;
 
   // 1. Check in-memory hardcoded fallback posts first
@@ -155,6 +155,7 @@ async function fetchPostFromFirestore(slugOrId, projectId) {
     p => p.slug.toLowerCase() === cleanSlug || p.id.toLowerCase() === cleanSlug || slugifyText(p.title) === cleanSlug
   );
   if (hardcoded) {
+    console.log('[Worker Debug] Match found in HARDCODED_POSTS for slug:', cleanSlug, 'title:', hardcoded.title);
     return {
       title: hardcoded.title,
       description: cleanTextSnippet(hardcoded.excerpt),
@@ -166,6 +167,7 @@ async function fetchPostFromFirestore(slugOrId, projectId) {
       publisherName: 'Vertex Theory',
     };
   }
+  console.log('[Worker Debug] No hardcoded match for slug:', cleanSlug, '- querying Firestore REST API...');
 
   // 2. Fetch from Firestore REST API with API key
   try {
@@ -185,6 +187,7 @@ async function fetchPostFromFirestore(slugOrId, projectId) {
       },
     };
 
+    console.log('[Worker Debug] Strategy 1 (structuredQuery) executing...');
     const queryResponse = await fetch(queryUrl, {
       method: 'POST',
       headers: {
@@ -194,23 +197,40 @@ async function fetchPostFromFirestore(slugOrId, projectId) {
       body: JSON.stringify(queryBody),
     });
 
+    console.log('[Worker Debug] Strategy 1 response HTTP status:', queryResponse.status, queryResponse.statusText);
+
     if (queryResponse.ok) {
       const results = await queryResponse.json();
-      for (const item of results) {
-        if (item.document && item.document.fields) {
-          const parsed = parseDocToMetadata(item.document.fields, item.document.createTime, item.document.updateTime);
-          if (parsed) return parsed;
+      console.log('[Worker Debug] Strategy 1 returned results count:', Array.isArray(results) ? results.length : 0);
+      if (Array.isArray(results)) {
+        for (const item of results) {
+          if (item.document && item.document.fields) {
+            const parsed = parseDocToMetadata(item.document.fields, item.document.createTime, item.document.updateTime);
+            if (parsed) {
+              console.log('[Worker Debug] Strategy 1 SUCCESS -> Matched post:', parsed.title);
+              return parsed;
+            }
+          }
         }
       }
+      console.log('[Worker Debug] Strategy 1 did not find a matching document.');
+    } else {
+      const errText = await queryResponse.text().catch(() => '');
+      console.log('[Worker Debug] Strategy 1 query error body:', errText);
     }
 
     const listUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${FIRESTORE_DATABASE}/documents/${POSTS_COLLECTION}?pageSize=100&key=${FIREBASE_API_KEY}`;
+    console.log('[Worker Debug] Strategy 2 (list documents) executing...');
     const listResponse = await fetch(listUrl, {
       headers: { 'Cache-Control': 'no-cache' }
     });
 
+    console.log('[Worker Debug] Strategy 2 response HTTP status:', listResponse.status, listResponse.statusText);
+
     if (listResponse.ok) {
       const listData = await listResponse.json();
+      const docCount = listData.documents && Array.isArray(listData.documents) ? listData.documents.length : 0;
+      console.log('[Worker Debug] Strategy 2 returned documents count:', docCount);
       if (listData.documents && Array.isArray(listData.documents)) {
         for (const doc of listData.documents) {
           const fields = doc.fields;
@@ -231,26 +251,39 @@ async function fetchPostFromFirestore(slugOrId, projectId) {
             (cleanSlug && docSlug.includes(cleanSlug))
           ) {
             const parsed = parseDocToMetadata(fields, doc.createTime, doc.updateTime);
-            if (parsed) return parsed;
+            if (parsed) {
+              console.log('[Worker Debug] Strategy 2 SUCCESS -> Matched post:', parsed.title, 'via docSlug:', docSlug, 'docId:', docId);
+              return parsed;
+            }
           }
         }
       }
+      console.log('[Worker Debug] Strategy 2 did not match slug:', cleanSlug);
+    } else {
+      const errText = await listResponse.text().catch(() => '');
+      console.log('[Worker Debug] Strategy 2 list error body:', errText);
     }
 
     const directDocUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${FIRESTORE_DATABASE}/documents/${POSTS_COLLECTION}/${encodeURIComponent(cleanSlug)}?key=${FIREBASE_API_KEY}`;
+    console.log('[Worker Debug] Strategy 3 (direct doc get) executing...');
     const directResponse = await fetch(directDocUrl, {
       headers: { 'Cache-Control': 'no-cache' }
     });
+    console.log('[Worker Debug] Strategy 3 response HTTP status:', directResponse.status, directResponse.statusText);
 
     if (directResponse.ok) {
       const directDoc = await directResponse.json();
       const parsed = parseDocToMetadata(directDoc.fields, directDoc.createTime, directDoc.updateTime);
-      if (parsed) return parsed;
+      if (parsed) {
+        console.log('[Worker Debug] Strategy 3 SUCCESS -> Matched post:', parsed.title);
+        return parsed;
+      }
     }
   } catch (error) {
-    console.error('Error fetching dynamic post metadata from Firestore:', error);
+    console.error('[Worker Debug] Error fetching dynamic post metadata from Firestore:', error, error instanceof Error ? error.stack : '');
   }
 
+  console.log('[Worker Debug] All strategies exhausted. Returning null for slug:', cleanSlug);
   return null;
 }
 
@@ -410,10 +443,15 @@ export default {
       postSlug = postSlug.trim();
     }
 
+    const isBot = isSocialCrawler(userAgent);
+    console.log('[Worker Debug] Incoming Request URL:', url.href, '| postSlug:', postSlug, '| isSocialCrawler:', isBot, '| userAgent:', userAgent);
+
     // 2. If this is a Social Media Crawler requesting a post URL:
-    if (postSlug && isSocialCrawler(userAgent)) {
+    if (postSlug && isBot) {
+      console.log('[Worker Debug] Crawler detected with post slug. Fetching dynamic post metadata...');
       const postData = await fetchPostFromFirestore(postSlug, FIREBASE_PROJECT_ID);
       if (postData) {
+        console.log('[Worker Debug] Post metadata found! Rendering crawler HTML for:', postData.title);
         postData.url = url.href;
         const crawlerHtml = renderCrawlerHtml(postData, url.href);
         return new Response(crawlerHtml, {
@@ -426,6 +464,8 @@ export default {
             'Vary': 'User-Agent',
           },
         });
+      } else {
+        console.log('[Worker Debug] Post metadata returned null for crawler request:', postSlug);
       }
     }
 
