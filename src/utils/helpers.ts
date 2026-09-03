@@ -217,6 +217,37 @@ export function exportMessagesToCSV(messages: ReaderMessage[]): void {
 }
 
 /**
+ * Canonical production website URL for Vertex Theory
+ */
+export const PRODUCTION_SITE_URL = 'https://vertex-theory1.kaflea991.workers.dev';
+
+/**
+ * Returns a robust, public canonical URL for sharing posts on social media.
+ * If running inside AI Studio, a container, or localhost, it maps cleanly to the public domain
+ * so social media crawlers (Facebook, X/Twitter, WhatsApp, LinkedIn) can fetch open graph metadata.
+ */
+export function getPostShareUrl(post: { slug?: string; id?: string }): string {
+  const postParam = post.slug || post.id || '';
+  if (typeof window === 'undefined') {
+    return `${PRODUCTION_SITE_URL}/?post=${encodeURIComponent(postParam)}`;
+  }
+
+  const origin = window.location.origin;
+  // If running in development, AI Studio sandbox, or local container, use the public production URL
+  if (
+    origin.includes('run.app') ||
+    origin.includes('localhost') ||
+    origin.includes('127.0.0.1') ||
+    origin.includes('googleusercontent.com')
+  ) {
+    return `${PRODUCTION_SITE_URL}/?post=${encodeURIComponent(postParam)}`;
+  }
+
+  // If running on production domain (workers.dev or custom domain), use current origin
+  return `${origin}/?post=${encodeURIComponent(postParam)}`;
+}
+
+/**
  * Formats date for editorial aesthetic: e.g. "OCTOBER 14, 2026"
  */
 export function formatEditorialDate(isoString: string): string {

@@ -14,8 +14,16 @@ import {
   where, 
   orderBy, 
   increment,
+  setLogLevel,
   Firestore 
 } from 'firebase/firestore';
+
+// Suppress Firestore internal connection timeout logs in restricted environments
+try {
+  setLogLevel('error');
+} catch {
+  // Ignored in test/node environments
+}
 import { 
   getAuth, 
   signInWithEmailAndPassword, 
@@ -103,7 +111,7 @@ export function getFirebaseClients() {
 
       try {
         firestoreInstance = initializeFirestore(appInstance, {
-          experimentalForceLongPolling: true,
+          experimentalAutoDetectLongPolling: true,
         });
       } catch {
         firestoreInstance = getFirestore(appInstance);
@@ -212,26 +220,138 @@ function saveLocalMessages(msgs: ReaderMessage[]) {
 }
 
 // ----------------------------------------------------
-// DATABASE API (FIRESTORE WITH INSTANT LOCAL FALLBACK)
+// DATABASE API (FIRESTORE WITH INSTANT LOCAL & REST FALLBACK)
 // ----------------------------------------------------
+
+function parseFirestoreValue(val: any): any {
+  if (!val || typeof val !== 'object') return val;
+  if ('stringValue' in val) return val.stringValue;
+  if ('integerValue' in val) return parseInt(val.integerValue, 10);
+  if ('doubleValue' in val) return parseFloat(val.doubleValue);
+  if ('booleanValue' in val) return val.booleanValue;
+  if ('timestampValue' in val) return val.timestampValue;
+  if ('arrayValue' in val) {
+    return (val.arrayValue.values || []).map(parseFirestoreValue);
+  }
+  if ('mapValue' in val) {
+    const res: Record<string, any> = {};
+    const fields = val.mapValue.fields || {};
+    for (const k of Object.keys(fields)) {
+      res[k] = parseFirestoreValue(fields[k]);
+    }
+    return res;
+  }
+  if ('nullValue' in val) return null;
+  return val;
+}
+
+function parseFirestoreDoc<T>(docData: any): T {
+  const result: any = { id: docData.name?.split('/').pop() };
+  const fields = docData.fields || {};
+  for (const k of Object.keys(fields)) {
+    result[k] = parseFirestoreValue(fields[k]);
+  }
+  return result as T;
+}
+
+async function fetchPostsFromRest(projectId: string): Promise<Post[] | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const resp = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/posts`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (!data.documents || !Array.isArray(data.documents)) return null;
+
+    const posts: Post[] = data.documents.map((d: any) => {
+      const p = parseFirestoreDoc<Post>(d);
+      return {
+        ...p,
+        id: p.id || d.name?.split('/').pop() || '',
+      };
+    });
+
+    posts.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    return posts;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchSettingsFromRest(projectId: string): Promise<SiteSettings | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const resp = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/settings/general`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (!data.fields) return null;
+    return parseFirestoreDoc<SiteSettings>(data);
+  } catch {
+    return null;
+  }
+}
 
 export async function fetchAllPosts(): Promise<Post[]> {
   const { db, isLive } = getFirebaseClients();
+  const activeConfig = getSavedFirebaseConfig() || DEFAULT_FIREBASE_CONFIG;
+  const projectId = activeConfig?.projectId;
+
   if (isLive && db) {
     try {
-      const postsCol = collection(db, 'posts');
-      const q = query(postsCol, orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(q);
-      if (!snapshot.empty) {
-        const posts: Post[] = [];
-        snapshot.forEach((d) => {
-          posts.push({ id: d.id, ...d.data() } as Post);
-        });
+      const sdkFetch = async (): Promise<Post[]> => {
+        const postsCol = collection(db, 'posts');
+        const q = query(postsCol, orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const posts: Post[] = [];
+          snapshot.forEach((d) => {
+            posts.push({ id: d.id, ...d.data() } as Post);
+          });
+          return posts;
+        }
+        return [];
+      };
+
+      // Race Firestore SDK against REST API with 2000ms threshold to prevent UI hangs in restricted networks/iframes
+      const posts = await Promise.race([
+        sdkFetch(),
+        new Promise<Post[]>((resolve) =>
+          setTimeout(async () => {
+            if (projectId) {
+              const restPosts = await fetchPostsFromRest(projectId);
+              if (restPosts && restPosts.length > 0) {
+                resolve(restPosts);
+                return;
+              }
+            }
+            resolve([]);
+          }, 2000)
+        )
+      ]);
+
+      if (posts && posts.length > 0) {
         saveLocalPosts(posts);
         return posts;
       }
     } catch (err) {
-      console.warn('Firestore fetch posts error, using cached store:', err);
+      console.warn('Firestore fetch posts error, trying REST API fallback:', err);
+    }
+
+    if (projectId) {
+      const restPosts = await fetchPostsFromRest(projectId);
+      if (restPosts && restPosts.length > 0) {
+        saveLocalPosts(restPosts);
+        return restPosts;
+      }
     }
   }
   return getLocalPosts();
@@ -318,17 +438,50 @@ export async function incrementPostLikes(postId: string): Promise<number> {
 
 export async function fetchSiteSettings(): Promise<SiteSettings> {
   const { db, isLive } = getFirebaseClients();
+  const activeConfig = getSavedFirebaseConfig() || DEFAULT_FIREBASE_CONFIG;
+  const projectId = activeConfig?.projectId;
+
   if (isLive && db) {
     try {
-      const settingsRef = doc(db, 'settings', 'general');
-      const snapshot = await getDoc(settingsRef);
-      if (snapshot.exists()) {
-        const data = snapshot.data() as SiteSettings;
-        saveLocalSettings(data);
-        return data;
+      const sdkFetch = async (): Promise<SiteSettings | null> => {
+        const settingsRef = doc(db, 'settings', 'general');
+        const snapshot = await getDoc(settingsRef);
+        if (snapshot.exists()) {
+          return snapshot.data() as SiteSettings;
+        }
+        return null;
+      };
+
+      const settings = await Promise.race([
+        sdkFetch(),
+        new Promise<SiteSettings | null>((resolve) =>
+          setTimeout(async () => {
+            if (projectId) {
+              const restSettings = await fetchSettingsFromRest(projectId);
+              if (restSettings) {
+                resolve(restSettings);
+                return;
+              }
+            }
+            resolve(null);
+          }, 2000)
+        )
+      ]);
+
+      if (settings) {
+        saveLocalSettings(settings);
+        return settings;
       }
     } catch (err) {
-      console.warn('Firestore fetch settings error:', err);
+      console.warn('Firestore fetch settings error, trying REST fallback:', err);
+    }
+
+    if (projectId) {
+      const restSettings = await fetchSettingsFromRest(projectId);
+      if (restSettings) {
+        saveLocalSettings(restSettings);
+        return restSettings;
+      }
     }
   }
   return getLocalSettings();

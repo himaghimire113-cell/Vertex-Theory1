@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Clock, Heart, ArrowUpRight, Share2 } from 'lucide-react';
+import { Clock, Heart, ArrowUpRight, Share2, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Post } from '../types';
-import { resolveDirectImageUrl, formatEditorialDate, navigateTo } from '../utils/helpers';
+import { resolveDirectImageUrl, formatEditorialDate, navigateTo, getPostShareUrl } from '../utils/helpers';
 import { incrementPostLikes } from '../firebaseConfig';
 
 interface PostCardProps {
@@ -18,6 +18,7 @@ export const PostCard: React.FC<PostCardProps> = ({
 }) => {
   const [likes, setLikes] = useState(post.likes || 0);
   const [hasLiked, setHasLiked] = useState(false);
+  const [copied, setCopied] = useState(false);
   const imageUrl = resolveDirectImageUrl(post.coverImage);
 
   const handleClick = (e: React.MouseEvent) => {
@@ -51,18 +52,23 @@ export const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  const handleShare = (e: React.MouseEvent) => {
+  const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const url = `${window.location.origin}/?post=${post.slug || post.id}`;
+    const url = getPostShareUrl(post);
     if (navigator.share) {
-      navigator.share({
-        title: post.title,
-        text: post.excerpt,
-        url: url,
-      }).catch(() => {});
+      try {
+        await navigator.share({
+          title: post.title,
+          text: post.excerpt,
+          url: url,
+        });
+      } catch {
+        // User cancelled share
+      }
     } else {
-      navigator.clipboard.writeText(url);
-      alert('Post link copied to clipboard!');
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -212,10 +218,12 @@ export const PostCard: React.FC<PostCardProps> = ({
             <button
               data-interactive="true"
               onClick={handleShare}
-              className="p-1.5 rounded-md hover:bg-[var(--color-surface-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-              title="Share link"
+              className={`p-1.5 rounded-md hover:bg-[var(--color-surface-secondary)] transition-colors ${
+                copied ? 'text-emerald-500' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+              title={copied ? 'Link copied!' : 'Share link'}
             >
-              <Share2 className="w-3.5 h-3.5" />
+              {copied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
             </button>
 
             <div className="text-[var(--color-accent)] p-1 group-hover:translate-x-0.5 transition-transform">

@@ -15,12 +15,13 @@ import {
   Linkedin, 
   Instagram,
   Facebook,
+  MessageCircle,
   Loader2,
   Tag
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Post, PostComment, SiteSettings } from '../types';
-import { resolveDirectImageUrl, formatEditorialDate, navigateTo } from '../utils/helpers';
+import { resolveDirectImageUrl, formatEditorialDate, navigateTo, getPostShareUrl } from '../utils/helpers';
 import { 
   fetchCommentsForPost, 
   addPostComment, 
@@ -124,27 +125,48 @@ export const PostDetail: React.FC<PostDetailProps> = ({
     }
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
+  const handleCopyLink = async () => {
+    const shareUrl = getPostShareUrl(post);
+    await navigator.clipboard.writeText(shareUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const handleShareSocial = (platform: 'twitter' | 'linkedin' | 'facebook') => {
-    const url = encodeURIComponent(window.location.href);
+  const handleShareNative = async () => {
+    const shareUrl = getPostShareUrl(post);
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: post.title,
+          text: post.excerpt,
+          url: shareUrl,
+        });
+      } catch {
+        // User cancelled share
+      }
+    } else {
+      await handleCopyLink();
+    }
+  };
+
+  const handleShareSocial = (platform: 'twitter' | 'linkedin' | 'facebook' | 'whatsapp') => {
+    const shareUrl = getPostShareUrl(post);
+    const url = encodeURIComponent(shareUrl);
     const title = encodeURIComponent(post.title);
-    let shareUrl = '';
+    let targetUrl = '';
 
     if (platform === 'twitter') {
-      shareUrl = `https://twitter.com/intent/tweet?text=${title}&url=${url}`;
+      targetUrl = `https://twitter.com/intent/tweet?text=${title}&url=${url}`;
     } else if (platform === 'linkedin') {
-      shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${url}`;
+      targetUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${url}`;
     } else if (platform === 'facebook') {
-      shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+      targetUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+    } else if (platform === 'whatsapp') {
+      targetUrl = `https://api.whatsapp.com/send?text=${title}%20${url}`;
     }
 
-    if (shareUrl) {
-      window.open(shareUrl, '_blank', 'noopener,noreferrer,width=600,height=450');
+    if (targetUrl) {
+      window.open(targetUrl, '_blank', 'noopener,noreferrer,width=600,height=450');
     }
   };
 
@@ -287,10 +309,34 @@ export const PostDetail: React.FC<PostDetailProps> = ({
               <button
                 onClick={handleCopyLink}
                 className="px-3 py-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-xs font-medium flex items-center gap-1.5 transition-colors"
-                title="Copy link"
+                title="Copy canonical link"
               >
                 {copiedLink ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
                 <span className="hidden sm:inline">{copiedLink ? 'Copied' : 'Copy'}</span>
+              </button>
+
+              <button
+                onClick={handleShareNative}
+                className="p-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/40 transition-colors sm:hidden"
+                title="Share via device sheet"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => handleShareSocial('whatsapp')}
+                className="p-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[#25D366] hover:border-[#25D366]/40 transition-colors"
+                title="Share on WhatsApp"
+              >
+                <MessageCircle className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => handleShareSocial('facebook')}
+                className="p-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[#1877f2] hover:border-[#1877f2]/40 transition-colors"
+                title="Share on Facebook"
+              >
+                <Facebook className="w-4 h-4" />
               </button>
 
               <button
