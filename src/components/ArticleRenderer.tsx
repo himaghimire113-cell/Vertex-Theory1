@@ -3,7 +3,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { ExternalLink, Sparkles, Copy, Check } from 'lucide-react';
-import { NativeBannerAd } from './NativeBannerAd';
 
 interface ArticleRendererProps {
   content: string;
@@ -12,7 +11,7 @@ interface ArticleRendererProps {
 
 export const ArticleRenderer: React.FC<ArticleRendererProps> = ({
   content,
-  showNativeAd = true,
+  showNativeAd = false,
 }) => {
   if (!content) return null;
 
@@ -226,42 +225,6 @@ export const ArticleRenderer: React.FC<ArticleRendererProps> = ({
       );
     },
   };
-
-  // If native ad should be injected, let's see if content has multiple paragraphs / sections
-  if (showNativeAd) {
-    // Check if we can split by double newlines or major HTML tag breaks
-    const blocks = content.split(/(?=\n\n|<h2|<h3|<hr|<table|<blockquote)/i).filter((b) => b.trim().length > 0);
-    
-    if (blocks.length >= 3) {
-      const splitIndex = Math.max(1, Math.floor(blocks.length * 0.7));
-      const firstHalf = blocks.slice(0, splitIndex).join('\n\n');
-      const secondHalf = blocks.slice(splitIndex).join('\n\n');
-
-      return (
-        <div className="article-content max-w-full min-w-0">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw]}
-            components={customComponents}
-          >
-            {firstHalf}
-          </ReactMarkdown>
-
-          <div className="my-8">
-            <NativeBannerAd />
-          </div>
-
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw]}
-            components={customComponents}
-          >
-            {secondHalf}
-          </ReactMarkdown>
-        </div>
-      );
-    }
-  }
 
   return (
     <div className="article-content max-w-full min-w-0">

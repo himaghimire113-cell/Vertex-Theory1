@@ -28,7 +28,6 @@ import {
   incrementPostLikes 
 } from '../firebaseConfig';
 import { SponsorBanner } from './SponsorBanner';
-import { NativeBannerAd } from './NativeBannerAd';
 import { NewsletterSection } from './NewsletterSection';
 import { ArticleRenderer } from './ArticleRenderer';
 
