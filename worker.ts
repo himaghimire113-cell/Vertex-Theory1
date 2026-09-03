@@ -19,6 +19,11 @@ interface Env {
   [key: string]: unknown;
 }
 
+interface ExecutionContext {
+  waitUntil: (promise: Promise<unknown>) => void;
+  passThroughOnException?: () => void;
+}
+
 interface FirestoreValue {
   stringValue?: string;
   integerValue?: string;
@@ -323,7 +328,8 @@ async function fetchPostFromFirestore(slugOrId: string, projectId: string): Prom
 }
 
 /**
- * Detect whether the User-Agent belongs to a social media link crawler, search bot, or validator
+ * Detect whether the User-Agent belongs to a social media link crawler, search bot, or validator.
+ * Specifically targets Facebook, X (Twitter), LinkedIn, Discord, Telegram, WhatsApp, Slack, etc.
  */
 function isSocialCrawler(userAgent: string): boolean {
   const ua = (userAgent || '').toLowerCase();
@@ -332,6 +338,7 @@ function isSocialCrawler(userAgent: string): boolean {
     ua.includes('facebot') ||
     ua.includes('meta-externalagent') ||
     ua.includes('twitterbot') ||
+    ua.includes('twitter') ||
     ua.includes('linkedinbot') ||
     ua.includes('whatsapp') ||
     ua.includes('telegrambot') ||
@@ -343,7 +350,6 @@ function isSocialCrawler(userAgent: string): boolean {
     ua.includes('applebot') ||
     ua.includes('vkshare') ||
     ua.includes('redditbot') ||
-    ua.includes('nuxtseo') ||
     ua.includes('opengraph') ||
     ua.includes('crawler') ||
     ua.includes('spider') ||
@@ -355,93 +361,10 @@ function isSocialCrawler(userAgent: string): boolean {
 }
 
 /**
- * Render a complete, standalone crawler HTML document with exact OpenGraph, Twitter, and Schema.org tags
+ * Check if the requested path corresponds to a static asset (images, css, js, fonts, etc.)
  */
-function renderCrawlerHtml(post: PostMetadata, canonicalUrl: string): string {
-  const title = `${post.title} — Vertex Theory`;
-  const schemaJson = JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'BlogPosting',
-    headline: post.title,
-    description: post.description,
-    image: post.imageUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop',
-    datePublished: post.publishedTime,
-    dateModified: post.modifiedTime || post.publishedTime,
-    mainEntityOfPage: {
-      '@type': 'WebPage',
-      '@id': canonicalUrl,
-    },
-    author: {
-      '@type': 'Person',
-      name: post.authorName,
-      url: 'https://vertex-theory1.kaflea991.workers.dev/',
-    },
-    publisher: {
-      '@type': 'Organization',
-      name: 'Vertex Theory',
-      logo: {
-        '@type': 'ImageObject',
-        url: 'https://vertex-theory1.kaflea991.workers.dev/icon-512.png',
-        width: 512,
-        height: 512,
-      },
-    },
-  }, null, 2);
-
-  return `<!DOCTYPE html>
-<html lang="en" prefix="og: https://ogp.me/ns# article: https://ogp.me/ns/article#">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)}</title>
-  <meta name="description" content="${escapeHtml(post.description)}">
-  <link rel="canonical" href="${escapeHtml(canonicalUrl)}">
-
-  <!-- Favicon & Touch Icons (High-Res 512x512) -->
-  <link rel="icon" type="image/svg+xml" sizes="any" href="/favicon.svg">
-  <link rel="icon" type="image/svg+xml" sizes="512x512" href="/icon-512.svg">
-  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
-  <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png">
-
-  <!-- Author & Article Metadata -->
-  <meta name="author" content="${escapeHtml(post.authorName)}">
-  <meta property="article:author" content="${escapeHtml(post.authorName)}">
-  <meta property="article:publisher" content="https://vertex-theory1.kaflea991.workers.dev/">
-  <meta property="article:published_time" content="${escapeHtml(post.publishedTime)}">
-  <meta property="article:modified_time" content="${escapeHtml(post.modifiedTime || post.publishedTime)}">
-
-  <!-- Open Graph / Facebook -->
-  <meta property="og:site_name" content="Vertex Theory">
-  <meta property="og:type" content="article">
-  <meta property="og:url" content="${escapeHtml(canonicalUrl)}">
-  <meta property="og:title" content="${escapeHtml(post.title)}">
-  <meta property="og:description" content="${escapeHtml(post.description)}">
-  <meta property="og:image" content="${escapeHtml(post.imageUrl)}">
-  <meta property="og:image:secure_url" content="${escapeHtml(post.imageUrl)}">
-  <meta property="og:image:alt" content="${escapeHtml(post.title)}">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:locale" content="en_US">
-
-  <!-- Twitter / X -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:site" content="@vertextheory">
-  <meta name="twitter:title" content="${escapeHtml(post.title)}">
-  <meta name="twitter:description" content="${escapeHtml(post.description)}">
-  <meta name="twitter:image" content="${escapeHtml(post.imageUrl)}">
-  <meta name="twitter:image:alt" content="${escapeHtml(post.title)}">
-
-  <!-- Structured Data (Schema.org JSON-LD BlogPosting) -->
-  <script type="application/ld+json">
-${schemaJson}
-  </script>
-</head>
-<body>
-  <h1>${escapeHtml(post.title)}</h1>
-  <p>${escapeHtml(post.description)}</p>
-  ${post.imageUrl ? `<img src="${escapeHtml(post.imageUrl)}" alt="${escapeHtml(post.title)}" />` : ''}
-</body>
-</html>`;
+function isStaticAsset(pathname: string): boolean {
+  return /\.(js|css|png|jpg|jpeg|gif|svg|ico|webp|avif|woff|woff2|ttf|eot|wasm|map|json|txt|xml)$/i.test(pathname);
 }
 
 function escapeHtml(str: string): string {
@@ -455,11 +378,46 @@ function escapeHtml(str: string): string {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const userAgent = request.headers.get('user-agent') || '';
 
-    // 1. Extract dynamic post slug parameter strictly from incoming URL
+    // ========================================================================
+    // 1. FAST PASS-THROUGH
+    // Check if incoming request is a human/browser or static asset.
+    // If NOT a social crawler, return env.ASSETS.fetch(request) immediately
+    // without running HTMLRewriter or calling Firestore.
+    // ========================================================================
+    const isBot = isSocialCrawler(userAgent);
+    const isStatic = isStaticAsset(url.pathname);
+
+    if (!isBot || isStatic || (request.method !== 'GET' && request.method !== 'HEAD')) {
+      if (env.ASSETS) {
+        return env.ASSETS.fetch(request);
+      }
+      return fetch(request);
+    }
+
+    console.log('[Worker Debug] Social crawler detected:', userAgent, '-> URL:', url.href);
+
+    // ========================================================================
+    // 2. EDGE CACHING (caches.default)
+    // For social crawlers, use Cloudflare's cache API to serve cached transformed
+    // HTML responses directly from the edge for 1 hour, saving Firestore reads.
+    // ========================================================================
+    const cache = (caches as unknown as { default: Cache }).default;
+    const cacheKey = new Request(url.toString(), {
+      method: 'GET',
+    });
+
+    const cachedResponse = await cache.match(cacheKey);
+    if (cachedResponse) {
+      console.log('[Worker Debug] Edge cache HIT for social crawler:', url.href);
+      return cachedResponse;
+    }
+    console.log('[Worker Debug] Edge cache MISS for social crawler:', url.href);
+
+    // Extract dynamic post slug parameter strictly from incoming URL
     let postSlug = url.searchParams.get('post') || url.searchParams.get('p') || url.searchParams.get('article');
 
     if (!postSlug && url.pathname.startsWith('/post/')) {
@@ -478,75 +436,80 @@ export default {
       postSlug = postSlug.trim();
     }
 
-    const isBot = isSocialCrawler(userAgent);
-    console.log('[Worker Debug] Incoming Request URL:', url.href, '| postSlug:', postSlug, '| isSocialCrawler:', isBot, '| userAgent:', userAgent);
-
-    // 2. If this is a Social Media Crawler requesting a post URL:
-    // Serve high-speed, 100% crawler-compliant HTML with exact Open Graph / Twitter metadata
-    if (postSlug && isBot) {
-      console.log('[Worker Debug] Crawler detected with post slug. Fetching dynamic post metadata...');
-      const postData = await fetchPostFromFirestore(postSlug, FIREBASE_PROJECT_ID);
-      if (postData) {
-        console.log('[Worker Debug] Post metadata found! Rendering crawler HTML for:', postData.title);
-        postData.url = url.href;
-        const crawlerHtml = renderCrawlerHtml(postData, url.href);
-        return new Response(crawlerHtml, {
-          status: 200,
-          headers: {
-            'Content-Type': 'text/html; charset=utf-8',
-            'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-            'Vary': 'User-Agent',
-          },
-        });
-      } else {
-        console.log('[Worker Debug] Post metadata returned null for crawler request:', postSlug);
-      }
-    }
-
-    // 3. Fetch the origin response (static assets or proxied origin)
+    // Fetch the origin response (static assets or SPA HTML index)
     let originResponse: Response;
     if (env.ASSETS) {
       originResponse = await env.ASSETS.fetch(request);
+      // Fallback to root index.html for client-side routing if asset router returns 404
+      if (originResponse.status === 404) {
+        originResponse = await env.ASSETS.fetch(new Request(new URL('/', request.url).toString(), request));
+      }
     } else {
       originResponse = await fetch(request);
     }
 
     const contentType = originResponse.headers.get('content-type') || '';
     
-    // If not an HTML response, return asset as-is with origin headers
+    // If not an HTML response, return asset as-is
     if (!contentType.includes('text/html')) {
       return originResponse;
     }
 
-    // If no post parameter is present in URL, serve standard default index.html
+    // If no post parameter is present in URL, cache and serve standard default index.html
     if (!postSlug) {
       const headers = new Headers(originResponse.headers);
-      headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
-      headers.set('Vary', 'Accept-Encoding, User-Agent');
-      return new Response(originResponse.body, {
+      headers.set('Content-Type', 'text/html; charset=utf-8');
+      headers.set('Cache-Control', 'public, max-age=3600');
+      headers.delete('Pragma');
+      headers.delete('Expires');
+
+      const defaultResponse = new Response(originResponse.body, {
         status: originResponse.status,
         statusText: originResponse.statusText,
         headers,
       });
+
+      try {
+        if (ctx && typeof ctx.waitUntil === 'function') {
+          ctx.waitUntil(cache.put(cacheKey, defaultResponse.clone()));
+        } else {
+          await cache.put(cacheKey, defaultResponse.clone());
+        }
+      } catch (cacheErr) {
+        console.warn('[Worker Debug] Cache put error:', cacheErr);
+      }
+
+      return defaultResponse;
     }
 
-    // 4. Fetch exact matching metadata dynamically from Firebase Firestore
+    // Fetch exact matching metadata dynamically from Firebase Firestore
     const postData = await fetchPostFromFirestore(postSlug, FIREBASE_PROJECT_ID);
     
     // If the requested slug is NOT found in Firestore, fallback to standard site index.html
     if (!postData) {
       const fallbackHeaders = new Headers(originResponse.headers);
-      fallbackHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0');
-      fallbackHeaders.set('Pragma', 'no-cache');
-      fallbackHeaders.set('Expires', '0');
-      fallbackHeaders.set('Vary', 'Accept-Encoding, User-Agent');
-      return new Response(originResponse.body, {
+      fallbackHeaders.set('Content-Type', 'text/html; charset=utf-8');
+      fallbackHeaders.set('Cache-Control', 'public, max-age=3600');
+      fallbackHeaders.delete('Pragma');
+      fallbackHeaders.delete('Expires');
+
+      const notFoundResponse = new Response(originResponse.body, {
         status: originResponse.status,
         statusText: originResponse.statusText,
         headers: fallbackHeaders,
       });
+
+      try {
+        if (ctx && typeof ctx.waitUntil === 'function') {
+          ctx.waitUntil(cache.put(cacheKey, notFoundResponse.clone()));
+        } else {
+          await cache.put(cacheKey, notFoundResponse.clone());
+        }
+      } catch (cacheErr) {
+        console.warn('[Worker Debug] Cache put error:', cacheErr);
+      }
+
+      return notFoundResponse;
     }
 
     postData.url = url.href;
@@ -593,7 +556,7 @@ export default {
     let seenCanonical = false;
     let seenLdJson = false;
 
-    // 5. Use Cloudflare HTMLRewriter to rewrite dynamic meta tags on the fly
+    // Use Cloudflare HTMLRewriter to rewrite dynamic meta tags on the fly
     const rewriter = new HTMLRewriter()
       // Overwrite <title>
       .on('title', {
@@ -773,18 +736,34 @@ export default {
       });
 
     const transformedResponse = rewriter.transform(originResponse);
-    
-    // Set strict cache-busting headers so Cloudflare Edge Cache, CDNs, and crawlers never cache cross-post metadata
-    const dynamicHeaders = new Headers(transformedResponse.headers);
-    dynamicHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0');
-    dynamicHeaders.set('Pragma', 'no-cache');
-    dynamicHeaders.set('Expires', '0');
-    dynamicHeaders.set('Vary', 'Accept-Encoding, User-Agent');
+    const transformedBody = await transformedResponse.text();
 
-    return new Response(transformedResponse.body, {
+    // Cache-Control: public, max-age=3600 (1 hour cache for social crawlers)
+    const dynamicHeaders = new Headers(transformedResponse.headers);
+    dynamicHeaders.set('Content-Type', 'text/html; charset=utf-8');
+    dynamicHeaders.set('Cache-Control', 'public, max-age=3600');
+    dynamicHeaders.delete('Pragma');
+    dynamicHeaders.delete('Expires');
+
+    const finalResponse = new Response(transformedBody, {
       status: transformedResponse.status,
       statusText: transformedResponse.statusText,
       headers: dynamicHeaders,
     });
+
+    // Store in Cloudflare Edge Cache for 1 hour to prevent redundant Firestore queries
+    try {
+      if (finalResponse.status === 200) {
+        if (ctx && typeof ctx.waitUntil === 'function') {
+          ctx.waitUntil(cache.put(cacheKey, finalResponse.clone()));
+        } else {
+          await cache.put(cacheKey, finalResponse.clone());
+        }
+      }
+    } catch (cacheErr) {
+      console.warn('[Worker Debug] Cache put error:', cacheErr);
+    }
+
+    return finalResponse;
   },
 };
