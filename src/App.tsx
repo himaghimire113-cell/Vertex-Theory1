@@ -72,6 +72,7 @@ export default function App() {
     handleLocationChange();
 
     window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
     window.addEventListener('vertex_navigation', handleLocationChange);
 
     // Initial load of posts and settings from Firestore/Cache
@@ -79,6 +80,7 @@ export default function App() {
 
     return () => {
       window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
       window.removeEventListener('vertex_navigation', handleLocationChange);
     };
   }, []);

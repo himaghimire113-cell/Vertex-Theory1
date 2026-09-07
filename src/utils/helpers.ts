@@ -87,24 +87,57 @@ export function parseQueryParams(): RouteParams {
   if (typeof window === 'undefined') return { page: 'home' };
   
   const searchParams = new URLSearchParams(window.location.search);
+  const rawPathname = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+  const rawHash = window.location.hash.toLowerCase().replace(/^#\/?/, '');
   
   const post = searchParams.get('post') || undefined;
   const category = searchParams.get('category') || undefined;
   const tag = searchParams.get('tag') || undefined;
-  const rawPage = searchParams.get('page');
+  const rawPage = searchParams.get('page')?.toLowerCase();
   const search = searchParams.get('q') || searchParams.get('search') || undefined;
   const adminTab = searchParams.get('tab') || undefined;
+
+  const isAdminRoute = 
+    rawPage === 'admin' ||
+    searchParams.has('admin') ||
+    rawPathname === '/admin' ||
+    rawPathname.endsWith('/admin') ||
+    rawPathname === '/login' ||
+    rawPathname.endsWith('/login') ||
+    rawPathname === '/dashboard' ||
+    rawHash === 'admin' ||
+    rawHash === '/admin' ||
+    rawHash === 'login' ||
+    rawHash.includes('page=admin');
+
+  const isAboutRoute =
+    rawPage === 'about' ||
+    rawPathname === '/about' ||
+    rawPathname.endsWith('/about') ||
+    rawHash === 'about';
+
+  const isContactRoute =
+    rawPage === 'contact' ||
+    rawPathname === '/contact' ||
+    rawPathname.endsWith('/contact') ||
+    rawHash === 'contact';
+
+  const isSubscribersRoute =
+    rawPage === 'subscribers' ||
+    rawPathname === '/subscribers' ||
+    rawPathname.endsWith('/subscribers') ||
+    rawHash === 'subscribers';
 
   let page: RouteParams['page'] = 'home';
   if (post) {
     page = 'post';
-  } else if (rawPage === 'admin') {
+  } else if (isAdminRoute) {
     page = 'admin';
-  } else if (rawPage === 'about') {
+  } else if (isAboutRoute) {
     page = 'about';
-  } else if (rawPage === 'contact') {
+  } else if (isContactRoute) {
     page = 'contact';
-  } else if (rawPage === 'subscribers') {
+  } else if (isSubscribersRoute) {
     page = 'subscribers';
   }
 

@@ -324,29 +324,43 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>Message Author & Inquiries</span>
               </button>
 
-              {/* Admin Portal Gateway: only shown if already authenticated via Firebase Auth */}
-              {isAdminLoggedIn && (
-                <div className="pt-2 border-t border-[var(--color-border)] space-y-1">
+              {/* Admin Portal Gateway: Accessible whether authenticated or signing in */}
+              <div className="pt-2 border-t border-[var(--color-border)] space-y-1">
+                {isAdminLoggedIn ? (
+                  <>
+                    <button
+                      onClick={() => handleNav('admin')}
+                      className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center justify-between font-semibold border cursor-pointer transition-colors bg-[var(--color-accent-subtle)] text-[var(--color-accent)] border-[var(--color-accent)]/30"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-[var(--color-accent)]" />
+                        <span>Admin Management Console</span>
+                      </div>
+                      <ArrowUpRight className="w-4 h-4 opacity-70" />
+                    </button>
+
+                    <button
+                      onClick={handleAdminLogout}
+                      className="w-full text-left px-3.5 py-2 rounded-xl text-xs text-rose-500 hover:bg-rose-500/10 flex items-center gap-2 font-mono transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out Admin</span>
+                    </button>
+                  </>
+                ) : (
                   <button
                     onClick={() => handleNav('admin')}
-                    className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center justify-between font-semibold border cursor-pointer transition-colors bg-[var(--color-accent-subtle)] text-[var(--color-accent)] border-[var(--color-accent)]/30"
+                    className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center justify-between font-medium border cursor-pointer transition-colors text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)] border-[var(--color-border)]"
+                    title="Editor / Admin Login"
                   >
                     <div className="flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-[var(--color-accent)]" />
-                      <span>Admin Management Console</span>
+                      <Shield className="w-4 h-4 text-[var(--color-text-muted)]" />
+                      <span>Editor / Admin Login</span>
                     </div>
-                    <ArrowUpRight className="w-4 h-4 opacity-70" />
+                    <ArrowUpRight className="w-3.5 h-3.5 opacity-50" />
                   </button>
-
-                  <button
-                    onClick={handleAdminLogout}
-                    className="w-full text-left px-3.5 py-2 rounded-xl text-xs text-rose-500 hover:bg-rose-500/10 flex items-center gap-2 font-mono transition-colors cursor-pointer"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Sign Out Admin</span>
-                  </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>

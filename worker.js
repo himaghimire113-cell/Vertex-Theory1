@@ -476,6 +476,9 @@ export default {
     let originResponse;
     if (env.ASSETS) {
       originResponse = await env.ASSETS.fetch(request);
+      if (originResponse.status === 404 && !isStaticAsset(url.pathname)) {
+        originResponse = await env.ASSETS.fetch(new Request(new URL('/', request.url).toString(), request));
+      }
     } else {
       originResponse = await fetch(request);
     }

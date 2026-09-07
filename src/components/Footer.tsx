@@ -102,17 +102,20 @@ export const Footer: React.FC<FooterProps> = ({ settings, isAdminLoggedIn = fals
                   Send Direct Inquiry / Message
                 </button>
               </li>
-              {isAdminLoggedIn && (
-                <li>
-                  <button
-                    onClick={() => navigateTo({ page: 'admin' })}
-                    className="hover:text-[var(--color-accent)] transition-colors cursor-pointer flex items-center gap-1.5 text-[var(--color-text-secondary)] font-medium"
-                  >
-                    <Shield className="w-3 h-3 text-[var(--color-accent)]" />
-                    <span>Admin & Editor Console</span>
-                  </button>
-                </li>
-              )}
+              <li>
+                <a
+                  href="/?page=admin"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigateTo({ page: 'admin' });
+                  }}
+                  className="hover:text-[var(--color-accent)] transition-colors cursor-pointer flex items-center gap-1.5 text-[var(--color-text-secondary)] font-medium"
+                  title="Admin & Editor Console"
+                >
+                  <Shield className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>{isAdminLoggedIn ? 'Admin & Editor Console' : 'Editor Login'}</span>
+                </a>
+              </li>
             </ul>
           </div>
         </div>
