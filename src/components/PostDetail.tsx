@@ -17,19 +17,11 @@ import {
   Facebook,
   MessageCircle,
   Loader2,
-  Tag,
-  Lock,
-  Unlock
+  Tag
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Post, PostComment, SiteSettings } from '../types';
-import { 
-  resolveDirectImageUrl, 
-  formatEditorialDate, 
-  navigateTo, 
-  getPostShareUrl,
-  extractContentPreview 
-} from '../utils/helpers';
+import { resolveDirectImageUrl, formatEditorialDate, navigateTo, getPostShareUrl } from '../utils/helpers';
 import { 
   fetchCommentsForPost, 
   addPostComment, 
@@ -72,148 +64,6 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
   // Reading progress
   const [readingProgress, setReadingProgress] = useState(0);
-
-  // Content lock / Preview gate state
-  const isLockEnabled = settings.contentLock ? settings.contentLock.enabled : true;
-  const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
-    if (!isLockEnabled) return true;
-    try {
-      const sessionKey = `unlocked_post_${post.id}`;
-      const slugKey = `unlocked_post_${post.slug}`;
-      return (
-        sessionStorage.getItem(sessionKey) === 'true' ||
-        localStorage.getItem(sessionKey) === 'true' ||
-        sessionStorage.getItem(slugKey) === 'true' ||
-        localStorage.getItem(slugKey) === 'true'
-      );
-    } catch {
-      return false;
-    }
-  });
-
-  const [isUnlocking, setIsUnlocking] = useState(false);
-  const [countdown, setCountdown] = useState(3);
-
-  // Re-sync unlock status when post changes
-  useEffect(() => {
-    setIsUnlocking(false);
-    setCountdown(3);
-    if (!isLockEnabled) {
-      setIsUnlocked(true);
-      return;
-    }
-    try {
-      const sessionKey = `unlocked_post_${post.id}`;
-      const slugKey = `unlocked_post_${post.slug}`;
-      const unlocked =
-        sessionStorage.getItem(sessionKey) === 'true' ||
-        localStorage.getItem(sessionKey) === 'true' ||
-        sessionStorage.getItem(slugKey) === 'true' ||
-        localStorage.getItem(slugKey) === 'true';
-      setIsUnlocked(unlocked);
-    } catch {
-      setIsUnlocked(false);
-    }
-  }, [post.id, post.slug, isLockEnabled]);
-
-  // When the user switches back/focuses this window (the "come back" moment), verify unlock
-  useEffect(() => {
-    const handleComebackCheck = () => {
-      try {
-        const sessionKey = `unlocked_post_${post.id}`;
-        const slugKey = `unlocked_post_${post.slug}`;
-        if (
-          sessionStorage.getItem(sessionKey) === 'true' ||
-          localStorage.getItem(sessionKey) === 'true' ||
-          sessionStorage.getItem(slugKey) === 'true' ||
-          localStorage.getItem(slugKey) === 'true'
-        ) {
-          setIsUnlocked(true);
-        }
-      } catch {}
-    };
-
-    window.addEventListener('focus', handleComebackCheck);
-    document.addEventListener('visibilitychange', handleComebackCheck);
-    return () => {
-      window.removeEventListener('focus', handleComebackCheck);
-      document.removeEventListener('visibilitychange', handleComebackCheck);
-    };
-  }, [post.id, post.slug]);
-
-  // Click unlock trigger: runs 3s countdown, then button is gone and full post appears!
-  // Never redirects to the website homepage.
-  const handleUnlockClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (isUnlocking || isUnlocked) return;
-
-    // Check if an external ad URL is configured.
-    // NEVER redirect to or open the homepage, same origin, or relative paths!
-    const configuredAdUrl = settings.contentLock?.adUrl?.trim() || '';
-    const isHomePageOrEmpty =
-      !configuredAdUrl ||
-      configuredAdUrl === '/' ||
-      configuredAdUrl === '#' ||
-      configuredAdUrl.includes('vertextheory.online') ||
-      (typeof window !== 'undefined' && (
-        configuredAdUrl === window.location.origin ||
-        configuredAdUrl === window.location.origin + '/' ||
-        configuredAdUrl.includes(window.location.hostname)
-      ));
-
-    // If an external ad network link (Monetag, CPA, Adsterra, etc.) is configured, trigger it in a new window/tab:
-    if (!isHomePageOrEmpty && (configuredAdUrl.startsWith('http://') || configuredAdUrl.startsWith('https://'))) {
-      try {
-        const popWin = window.open(configuredAdUrl, '_blank');
-        if (popWin) {
-          try {
-            popWin.blur();
-            window.focus();
-          } catch {}
-        }
-      } catch (err) {
-        console.warn('Popunder trigger error:', err);
-      }
-    }
-
-    // Start 3-second countdown
-    setIsUnlocking(true);
-    setCountdown(3);
-
-    let secondsLeft = 3;
-    const timer = setInterval(() => {
-      secondsLeft -= 1;
-      if (secondsLeft > 0) {
-        setCountdown(secondsLeft);
-      } else {
-        clearInterval(timer);
-        setCountdown(0);
-        setIsUnlocking(false);
-        setIsUnlocked(true);
-
-        // Permanently record unlock for this post
-        try {
-          const sessionKey = `unlocked_post_${post.id}`;
-          const slugKey = `unlocked_post_${post.slug}`;
-          sessionStorage.setItem(sessionKey, 'true');
-          localStorage.setItem(sessionKey, 'true');
-          sessionStorage.setItem(slugKey, 'true');
-          localStorage.setItem(slugKey, 'true');
-        } catch (err) {
-          console.warn('Storage save error:', err);
-        }
-
-        // Celebrate with confetti as full post appears
-        try {
-          confetti({
-            particleCount: 50,
-            spread: 75,
-            origin: { y: 0.6 }
-          });
-        } catch {}
-      }
-    }, 1000);
-  };
 
   const imageUrl = resolveDirectImageUrl(post.coverImage);
 
@@ -521,94 +371,10 @@ export const PostDetail: React.FC<PostDetailProps> = ({
         {/* Sponsor Banner if active */}
         <SponsorBanner sponsor={settings.sponsorBanner} />
 
-        {/* Article Body: Preview with Popunder Unlock Trigger vs Full Unlocked Content */}
-        {isUnlocked ? (
-          <div className="pt-4 pb-12 transition-all duration-300">
-            {isLockEnabled && (
-              <div className="mb-6 p-3.5 sm:p-4 rounded-xl bg-emerald-950/20 border border-emerald-800/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                  <span className="font-semibold">Full Article Unlocked • You have unrestricted access to this dispatch</span>
-                </div>
-                <span className="text-[10px] font-mono uppercase text-emerald-500/80 hidden sm:inline">Active Access</span>
-              </div>
-            )}
-            <ArticleRenderer content={post.content} />
-          </div>
-        ) : (
-          <div className="pt-4 pb-8 space-y-6">
-            {/* Story Preview with Frosted Bottom Fade */}
-            <div className="relative overflow-hidden max-h-[380px] rounded-b-2xl">
-              <ArticleRenderer
-                content={extractContentPreview(post.content, settings.contentLock?.previewParagraphs || 2)}
-              />
-              <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[var(--color-bg)] via-[var(--color-bg)]/90 to-transparent pointer-events-none" />
-            </div>
-
-            {/* HIGH-IMPACT UNLOCK CALLOUT CARD */}
-            <div className="relative z-10 p-6 sm:p-8 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-accent)]/40 shadow-2xl text-center space-y-4 max-w-xl mx-auto backdrop-blur-md">
-              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[var(--color-accent)]/15 border border-[var(--color-accent)]/30 text-xs font-mono text-[var(--color-accent)] font-semibold tracking-wider uppercase">
-                <Lock className="w-3.5 h-3.5" />
-                <span>Story Preview Mode</span>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-heading font-bold text-xl sm:text-2xl text-[var(--color-text-primary)]">
-                  Continue Reading Full Dispatch
-                </h3>
-                <p className="text-xs sm:text-sm text-[var(--color-text-muted)] max-w-[48ch] mx-auto leading-relaxed">
-                  {settings.contentLock?.promptText ||
-                    'You are viewing an introductory preview. Click below to support our independent publication and immediately unlock the complete essay, diagrams, and reference sources.'}
-                </p>
-              </div>
-
-              <div className="pt-2 space-y-2.5">
-                <button
-                  type="button"
-                  onClick={handleUnlockClick}
-                  disabled={isUnlocking}
-                  className={`w-full sm:w-auto px-8 py-3.5 rounded-xl text-white font-heading font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-lg transition-all mx-auto active:scale-95 ${
-                    isUnlocking
-                      ? 'bg-emerald-600 shadow-emerald-600/30 cursor-wait'
-                      : 'bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] shadow-[var(--color-accent)]/30 hover:shadow-[var(--color-accent)]/50 transform hover:-translate-y-0.5 cursor-pointer group'
-                  }`}
-                >
-                  {isUnlocking ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin text-white" />
-                      <span>Unlocking in {countdown}s...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-                      <span>{settings.contentLock?.buttonText || 'Click here and comeback'}</span>
-                      <ExternalLink className="w-4 h-4 opacity-80 group-hover:translate-x-0.5 transition-transform" />
-                    </>
-                  )}
-                </button>
-
-                {/* Visual countdown progress */}
-                {isUnlocking ? (
-                  <div className="max-w-xs mx-auto space-y-1 pt-1">
-                    <div className="w-full bg-[var(--color-border)] h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="bg-emerald-500 h-full transition-all duration-1000 ease-linear rounded-full"
-                        style={{ width: `${Math.max(15, ((3 - countdown + 0.5) / 3) * 100)}%` }}
-                      />
-                    </div>
-                    <p className="text-[11px] font-mono text-emerald-500 font-medium">
-                      Revealing full story in {countdown}s...
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-[11px] font-mono text-[var(--color-text-dim)]">
-                    Click to unlock • Full dispatch appears after 3 seconds
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Article Body */}
+        <div className="pt-4 pb-12">
+          <ArticleRenderer content={post.content} />
+        </div>
 
         {/* Embedded Affiliate Links Section if defined */}
         {post.affiliateLinks && post.affiliateLinks.length > 0 && (

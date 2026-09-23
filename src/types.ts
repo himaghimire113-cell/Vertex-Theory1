@@ -58,14 +58,6 @@ export interface ReaderMessage {
   replyNotes?: string;
 }
 
-export interface ContentLockSettings {
-  enabled: boolean;
-  buttonText: string;
-  adUrl: string;
-  previewParagraphs?: number;
-  promptText?: string;
-}
-
 export interface SiteSettings {
   siteName: string;
   tagline: string;
@@ -81,7 +73,6 @@ export interface SiteSettings {
   authorLinkedin?: string;
   announcementText?: string;
   announcementActive?: boolean;
-  contentLock?: ContentLockSettings;
   sponsorBanner: {
     enabled: boolean;
     label: string; // e.g. "ADVERTISE IN THIS SPACE"

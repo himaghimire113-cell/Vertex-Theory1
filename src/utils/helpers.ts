@@ -297,28 +297,3 @@ export function formatEditorialDate(isoString: string): string {
   }
 }
 
-/**
- * Extracts an engaging, high-fidelity teaser preview of article content.
- * Keeps introductory headers and the first 1-2 paragraphs while gracefully
- * omitting subsequent deep sections and affiliate cards.
- */
-export function extractContentPreview(content: string, maxParagraphs: number = 2): string {
-  if (!content) return '';
-
-  // Split into distinct blocks separated by double newlines
-  const rawBlocks = content.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
-
-  if (rawBlocks.length === 0) return content.slice(0, 300);
-
-  // Filter out any affiliate link shortcodes or standalone link tags in the preview teaser
-  const blocks = rawBlocks.filter(b => !b.startsWith('[AFFILIATE:') && !b.startsWith('<script'));
-
-  if (blocks.length <= 1) {
-    const text = blocks[0] || content;
-    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-    return sentences.slice(0, 2).join(' ') || text.slice(0, 350);
-  }
-
-  // Pick up to maxParagraphs blocks (e.g., initial H2 + lead paragraph)
-  return blocks.slice(0, Math.max(1, maxParagraphs)).join('\n\n');
-}
