@@ -1638,7 +1638,7 @@ service cloud.firestore {
                       ...appearanceData,
                       contentLock: {
                         enabled: appearanceData.contentLock?.enabled ?? true,
-                        adUrl: appearanceData.contentLock?.adUrl || 'https://vertextheory.online/',
+                        adUrl: appearanceData.contentLock?.adUrl || '',
                         previewParagraphs: appearanceData.contentLock?.previewParagraphs ?? 2,
                         buttonText: e.target.value,
                         promptText: appearanceData.contentLock?.promptText || ''
@@ -1663,7 +1663,7 @@ service cloud.firestore {
                       contentLock: {
                         enabled: appearanceData.contentLock?.enabled ?? true,
                         buttonText: appearanceData.contentLock?.buttonText || 'Click here and comeback',
-                        adUrl: appearanceData.contentLock?.adUrl || 'https://vertextheory.online/',
+                        adUrl: appearanceData.contentLock?.adUrl || '',
                         previewParagraphs: parseInt(e.target.value) || 2,
                         promptText: appearanceData.contentLock?.promptText || ''
                       }
@@ -1676,7 +1676,7 @@ service cloud.firestore {
 
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-mono text-[#9ca3af]">Popunder Ad URL / Direct Smartlink</label>
+                <label className="text-xs font-mono text-[#9ca3af]">Popunder Ad URL / Direct Smartlink (Optional)</label>
                 {appearanceData.contentLock?.adUrl && (
                   <button
                     type="button"
@@ -1706,11 +1706,11 @@ service cloud.firestore {
                     }
                   })
                 }
-                placeholder="https://your-ad-network.com/smartlink or https://vertextheory.online/"
+                placeholder="https://your-ad-network.com/smartlink (Leave empty if no external ad)"
                 className="w-full px-3 py-2 rounded-lg bg-[#0c0d10] border border-[#262a37] text-white text-xs"
               />
               <p className="text-[11px] text-[#717688]">
-                Paste your Monetag direct link, CPA grip URL, Adsterra smartlink, or any popunder destination.
+                Optional: Paste an external Monetag smartlink, CPA Grip direct link, etc. If blank, clicking simply unlocks after 3 seconds with no redirection.
               </p>
             </div>
 

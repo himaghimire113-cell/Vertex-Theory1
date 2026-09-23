@@ -17,7 +17,7 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
   contentLock: {
     enabled: true,
     buttonText: 'Click here and comeback',
-    adUrl: 'https://vertextheory.online/',
+    adUrl: '',
     previewParagraphs: 2,
     promptText: 'Unlock the complete dispatch, reference notes & high-resolution diagrams.'
   },

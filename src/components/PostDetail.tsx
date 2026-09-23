@@ -91,8 +91,13 @@ export const PostDetail: React.FC<PostDetailProps> = ({
     }
   });
 
+  const [isUnlocking, setIsUnlocking] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+
   // Re-sync unlock status when post changes
   useEffect(() => {
+    setIsUnlocking(false);
+    setCountdown(3);
     if (!isLockEnabled) {
       setIsUnlocked(true);
       return;
@@ -136,48 +141,78 @@ export const PostDetail: React.FC<PostDetailProps> = ({
     };
   }, [post.id, post.slug]);
 
-  // Single-click unlock trigger: launches popunder ad in new tab and permanently unlocks the article
+  // Click unlock trigger: runs 3s countdown, then button is gone and full post appears!
+  // Never redirects to the website homepage.
   const handleUnlockClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (isUnlocking || isUnlocked) return;
 
-    const adUrl = settings.contentLock?.adUrl?.trim() || 'https://vertextheory.online/';
+    // Check if an external ad URL is configured.
+    // NEVER redirect to or open the homepage, same origin, or relative paths!
+    const configuredAdUrl = settings.contentLock?.adUrl?.trim() || '';
+    const isHomePageOrEmpty =
+      !configuredAdUrl ||
+      configuredAdUrl === '/' ||
+      configuredAdUrl === '#' ||
+      configuredAdUrl.includes('vertextheory.online') ||
+      (typeof window !== 'undefined' && (
+        configuredAdUrl === window.location.origin ||
+        configuredAdUrl === window.location.origin + '/' ||
+        configuredAdUrl.includes(window.location.hostname)
+      ));
 
-    // 1. Trigger the popunder / new tab ad
-    try {
-      const popWin = window.open(adUrl, '_blank');
-      if (popWin) {
-        try {
-          popWin.blur();
-          window.focus();
-        } catch {
-          // Standard browser behavior
+    // If an external ad network link (Monetag, CPA, Adsterra, etc.) is configured, trigger it in a new window/tab:
+    if (!isHomePageOrEmpty && (configuredAdUrl.startsWith('http://') || configuredAdUrl.startsWith('https://'))) {
+      try {
+        const popWin = window.open(configuredAdUrl, '_blank');
+        if (popWin) {
+          try {
+            popWin.blur();
+            window.focus();
+          } catch {}
         }
+      } catch (err) {
+        console.warn('Popunder trigger error:', err);
       }
-    } catch (err) {
-      console.warn('Popunder trigger:', err);
     }
 
-    // 2. Mark unlocked permanently for this post
-    setIsUnlocked(true);
-    try {
-      const sessionKey = `unlocked_post_${post.id}`;
-      const slugKey = `unlocked_post_${post.slug}`;
-      sessionStorage.setItem(sessionKey, 'true');
-      localStorage.setItem(sessionKey, 'true');
-      sessionStorage.setItem(slugKey, 'true');
-      localStorage.setItem(slugKey, 'true');
-    } catch (err) {
-      console.warn('Storage save error:', err);
-    }
+    // Start 3-second countdown
+    setIsUnlocking(true);
+    setCountdown(3);
 
-    // 3. Confetti burst to reward user
-    try {
-      confetti({
-        particleCount: 45,
-        spread: 70,
-        origin: { x: e.clientX / window.innerWidth, y: Math.min(0.8, e.clientY / window.innerHeight) }
-      });
-    } catch {}
+    let secondsLeft = 3;
+    const timer = setInterval(() => {
+      secondsLeft -= 1;
+      if (secondsLeft > 0) {
+        setCountdown(secondsLeft);
+      } else {
+        clearInterval(timer);
+        setCountdown(0);
+        setIsUnlocking(false);
+        setIsUnlocked(true);
+
+        // Permanently record unlock for this post
+        try {
+          const sessionKey = `unlocked_post_${post.id}`;
+          const slugKey = `unlocked_post_${post.slug}`;
+          sessionStorage.setItem(sessionKey, 'true');
+          localStorage.setItem(sessionKey, 'true');
+          sessionStorage.setItem(slugKey, 'true');
+          localStorage.setItem(slugKey, 'true');
+        } catch (err) {
+          console.warn('Storage save error:', err);
+        }
+
+        // Celebrate with confetti as full post appears
+        try {
+          confetti({
+            particleCount: 50,
+            spread: 75,
+            origin: { y: 0.6 }
+          });
+        } catch {}
+      }
+    }, 1000);
   };
 
   const imageUrl = resolveDirectImageUrl(post.coverImage);
@@ -527,20 +562,49 @@ export const PostDetail: React.FC<PostDetailProps> = ({
                 </p>
               </div>
 
-              <div className="pt-2 space-y-2">
+              <div className="pt-2 space-y-2.5">
                 <button
                   type="button"
                   onClick={handleUnlockClick}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-heading font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-lg shadow-[var(--color-accent)]/30 hover:shadow-[var(--color-accent)]/50 transition-all transform hover:-translate-y-0.5 cursor-pointer mx-auto group active:scale-95"
+                  disabled={isUnlocking}
+                  className={`w-full sm:w-auto px-8 py-3.5 rounded-xl text-white font-heading font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-lg transition-all mx-auto active:scale-95 ${
+                    isUnlocking
+                      ? 'bg-emerald-600 shadow-emerald-600/30 cursor-wait'
+                      : 'bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] shadow-[var(--color-accent)]/30 hover:shadow-[var(--color-accent)]/50 transform hover:-translate-y-0.5 cursor-pointer group'
+                  }`}
                 >
-                  <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-                  <span>{settings.contentLock?.buttonText || 'Click here and comeback'}</span>
-                  <ExternalLink className="w-4 h-4 opacity-80 group-hover:translate-x-0.5 transition-transform" />
+                  {isUnlocking ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      <span>Unlocking in {countdown}s...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                      <span>{settings.contentLock?.buttonText || 'Click here and comeback'}</span>
+                      <ExternalLink className="w-4 h-4 opacity-80 group-hover:translate-x-0.5 transition-transform" />
+                    </>
+                  )}
                 </button>
 
-                <p className="text-[11px] font-mono text-[var(--color-text-dim)]">
-                  Opens sponsor partner in background tab • Unlocks full story on click
-                </p>
+                {/* Visual countdown progress */}
+                {isUnlocking ? (
+                  <div className="max-w-xs mx-auto space-y-1 pt-1">
+                    <div className="w-full bg-[var(--color-border)] h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-emerald-500 h-full transition-all duration-1000 ease-linear rounded-full"
+                        style={{ width: `${Math.max(15, ((3 - countdown + 0.5) / 3) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] font-mono text-emerald-500 font-medium">
+                      Revealing full story in {countdown}s...
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-[11px] font-mono text-[var(--color-text-dim)]">
+                    Click to unlock • Full dispatch appears after 3 seconds
+                  </p>
+                )}
               </div>
             </div>
           </div>
