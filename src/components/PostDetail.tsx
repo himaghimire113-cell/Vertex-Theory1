@@ -17,11 +17,19 @@ import {
   Facebook,
   MessageCircle,
   Loader2,
-  Tag
+  Tag,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Post, PostComment, SiteSettings } from '../types';
-import { resolveDirectImageUrl, formatEditorialDate, navigateTo, getPostShareUrl } from '../utils/helpers';
+import { 
+  resolveDirectImageUrl, 
+  formatEditorialDate, 
+  navigateTo, 
+  getPostShareUrl,
+  extractContentPreview 
+} from '../utils/helpers';
 import { 
   fetchCommentsForPost, 
   addPostComment, 
@@ -64,6 +72,113 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
   // Reading progress
   const [readingProgress, setReadingProgress] = useState(0);
+
+  // Content lock / Preview gate state
+  const isLockEnabled = settings.contentLock ? settings.contentLock.enabled : true;
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
+    if (!isLockEnabled) return true;
+    try {
+      const sessionKey = `unlocked_post_${post.id}`;
+      const slugKey = `unlocked_post_${post.slug}`;
+      return (
+        sessionStorage.getItem(sessionKey) === 'true' ||
+        localStorage.getItem(sessionKey) === 'true' ||
+        sessionStorage.getItem(slugKey) === 'true' ||
+        localStorage.getItem(slugKey) === 'true'
+      );
+    } catch {
+      return false;
+    }
+  });
+
+  // Re-sync unlock status when post changes
+  useEffect(() => {
+    if (!isLockEnabled) {
+      setIsUnlocked(true);
+      return;
+    }
+    try {
+      const sessionKey = `unlocked_post_${post.id}`;
+      const slugKey = `unlocked_post_${post.slug}`;
+      const unlocked =
+        sessionStorage.getItem(sessionKey) === 'true' ||
+        localStorage.getItem(sessionKey) === 'true' ||
+        sessionStorage.getItem(slugKey) === 'true' ||
+        localStorage.getItem(slugKey) === 'true';
+      setIsUnlocked(unlocked);
+    } catch {
+      setIsUnlocked(false);
+    }
+  }, [post.id, post.slug, isLockEnabled]);
+
+  // When the user switches back/focuses this window (the "come back" moment), verify unlock
+  useEffect(() => {
+    const handleComebackCheck = () => {
+      try {
+        const sessionKey = `unlocked_post_${post.id}`;
+        const slugKey = `unlocked_post_${post.slug}`;
+        if (
+          sessionStorage.getItem(sessionKey) === 'true' ||
+          localStorage.getItem(sessionKey) === 'true' ||
+          sessionStorage.getItem(slugKey) === 'true' ||
+          localStorage.getItem(slugKey) === 'true'
+        ) {
+          setIsUnlocked(true);
+        }
+      } catch {}
+    };
+
+    window.addEventListener('focus', handleComebackCheck);
+    document.addEventListener('visibilitychange', handleComebackCheck);
+    return () => {
+      window.removeEventListener('focus', handleComebackCheck);
+      document.removeEventListener('visibilitychange', handleComebackCheck);
+    };
+  }, [post.id, post.slug]);
+
+  // Single-click unlock trigger: launches popunder ad in new tab and permanently unlocks the article
+  const handleUnlockClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+
+    const adUrl = settings.contentLock?.adUrl?.trim() || 'https://vertextheory.online/';
+
+    // 1. Trigger the popunder / new tab ad
+    try {
+      const popWin = window.open(adUrl, '_blank');
+      if (popWin) {
+        try {
+          popWin.blur();
+          window.focus();
+        } catch {
+          // Standard browser behavior
+        }
+      }
+    } catch (err) {
+      console.warn('Popunder trigger:', err);
+    }
+
+    // 2. Mark unlocked permanently for this post
+    setIsUnlocked(true);
+    try {
+      const sessionKey = `unlocked_post_${post.id}`;
+      const slugKey = `unlocked_post_${post.slug}`;
+      sessionStorage.setItem(sessionKey, 'true');
+      localStorage.setItem(sessionKey, 'true');
+      sessionStorage.setItem(slugKey, 'true');
+      localStorage.setItem(slugKey, 'true');
+    } catch (err) {
+      console.warn('Storage save error:', err);
+    }
+
+    // 3. Confetti burst to reward user
+    try {
+      confetti({
+        particleCount: 45,
+        spread: 70,
+        origin: { x: e.clientX / window.innerWidth, y: Math.min(0.8, e.clientY / window.innerHeight) }
+      });
+    } catch {}
+  };
 
   const imageUrl = resolveDirectImageUrl(post.coverImage);
 
@@ -371,10 +486,65 @@ export const PostDetail: React.FC<PostDetailProps> = ({
         {/* Sponsor Banner if active */}
         <SponsorBanner sponsor={settings.sponsorBanner} />
 
-        {/* Article Body */}
-        <div className="pt-4 pb-12">
-          <ArticleRenderer content={post.content} />
-        </div>
+        {/* Article Body: Preview with Popunder Unlock Trigger vs Full Unlocked Content */}
+        {isUnlocked ? (
+          <div className="pt-4 pb-12 transition-all duration-300">
+            {isLockEnabled && (
+              <div className="mb-6 p-3.5 sm:p-4 rounded-xl bg-emerald-950/20 border border-emerald-800/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span className="font-semibold">Full Article Unlocked • You have unrestricted access to this dispatch</span>
+                </div>
+                <span className="text-[10px] font-mono uppercase text-emerald-500/80 hidden sm:inline">Active Access</span>
+              </div>
+            )}
+            <ArticleRenderer content={post.content} />
+          </div>
+        ) : (
+          <div className="pt-4 pb-8 space-y-6">
+            {/* Story Preview with Frosted Bottom Fade */}
+            <div className="relative overflow-hidden max-h-[380px] rounded-b-2xl">
+              <ArticleRenderer
+                content={extractContentPreview(post.content, settings.contentLock?.previewParagraphs || 2)}
+              />
+              <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[var(--color-bg)] via-[var(--color-bg)]/90 to-transparent pointer-events-none" />
+            </div>
+
+            {/* HIGH-IMPACT UNLOCK CALLOUT CARD */}
+            <div className="relative z-10 p-6 sm:p-8 rounded-2xl bg-[var(--color-surface)] border-2 border-[var(--color-accent)]/40 shadow-2xl text-center space-y-4 max-w-xl mx-auto backdrop-blur-md">
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[var(--color-accent)]/15 border border-[var(--color-accent)]/30 text-xs font-mono text-[var(--color-accent)] font-semibold tracking-wider uppercase">
+                <Lock className="w-3.5 h-3.5" />
+                <span>Story Preview Mode</span>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-heading font-bold text-xl sm:text-2xl text-[var(--color-text-primary)]">
+                  Continue Reading Full Dispatch
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--color-text-muted)] max-w-[48ch] mx-auto leading-relaxed">
+                  {settings.contentLock?.promptText ||
+                    'You are viewing an introductory preview. Click below to support our independent publication and immediately unlock the complete essay, diagrams, and reference sources.'}
+                </p>
+              </div>
+
+              <div className="pt-2 space-y-2">
+                <button
+                  type="button"
+                  onClick={handleUnlockClick}
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-heading font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-lg shadow-[var(--color-accent)]/30 hover:shadow-[var(--color-accent)]/50 transition-all transform hover:-translate-y-0.5 cursor-pointer mx-auto group active:scale-95"
+                >
+                  <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                  <span>{settings.contentLock?.buttonText || 'Click here and comeback'}</span>
+                  <ExternalLink className="w-4 h-4 opacity-80 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+
+                <p className="text-[11px] font-mono text-[var(--color-text-dim)]">
+                  Opens sponsor partner in background tab • Unlocks full story on click
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Embedded Affiliate Links Section if defined */}
         {post.affiliateLinks && post.affiliateLinks.length > 0 && (

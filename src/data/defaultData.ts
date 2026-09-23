@@ -14,6 +14,13 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
   authorLinkedin: 'https://linkedin.com/in/vertextheory',
   announcementText: '',
   announcementActive: false,
+  contentLock: {
+    enabled: true,
+    buttonText: 'Click here and comeback',
+    adUrl: 'https://vertextheory.online/',
+    previewParagraphs: 2,
+    promptText: 'Unlock the complete dispatch, reference notes & high-resolution diagrams.'
+  },
   sponsorBanner: {
     enabled: false,
     label: 'PRESENTED BY',
