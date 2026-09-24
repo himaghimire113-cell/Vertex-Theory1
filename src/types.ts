@@ -82,11 +82,6 @@ export interface SiteSettings {
     url: string;
     badgeText?: string;
   };
-  previewMode?: {
-    enabled?: boolean;
-    buttonText?: string;
-    popunderUrl?: string;
-  };
 }
 
 export interface FirebaseCustomConfig {

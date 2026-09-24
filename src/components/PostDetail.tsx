@@ -17,10 +17,7 @@ import {
   Facebook,
   MessageCircle,
   Loader2,
-  Tag,
-  ArrowRight,
-  BookOpen,
-  Eye
+  Tag
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Post, PostComment, SiteSettings } from '../types';
@@ -68,36 +65,6 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
   // Reading progress
   const [readingProgress, setReadingProgress] = useState(0);
-
-  // Preview Mode & Unlocking (Default to Preview Mode when post opens)
-  const previewEnabled = settings.previewMode?.enabled !== false;
-  const [isUnlocked, setIsUnlocked] = useState(!previewEnabled);
-
-  useEffect(() => {
-    setIsUnlocked(!previewEnabled);
-  }, [post.id, previewEnabled]);
-
-  const handleUnlockClick = () => {
-    // 1. Popunder execution
-    try {
-      const popunderUrl = settings.previewMode?.popunderUrl?.trim() || 'https://vertex-theory1.kaflea991.workers.dev/?utm_medium=popunder';
-      const popunderWin = window.open(popunderUrl, '_blank');
-      if (popunderWin) {
-        try {
-          popunderWin.blur();
-          window.focus();
-        } catch {
-          // Handled
-        }
-      }
-    } catch (e) {
-      console.warn('Popunder trigger:', e);
-    }
-
-    // 2. Button checks if it was clicked, unlocks the full content and returns view to top
-    setIsUnlocked(true);
-    window.scrollTo({ top: 0, behavior: 'instant' });
-  };
 
   const imageUrl = resolveDirectImageUrl(post.coverImage);
 
@@ -258,128 +225,6 @@ export const PostDetail: React.FC<PostDetailProps> = ({
     .filter((p) => p.id !== post.id && p.published)
     .slice(0, 2);
 
-  // PREVIEW MODE: Just its title and image post at side with buttons and ad at down
-  if (!isUnlocked) {
-    return (
-      <div className="min-h-screen pb-20 w-full max-w-full overflow-x-hidden">
-        <article className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10 w-full min-w-0 overflow-x-hidden">
-          {/* Top Bar: Return Link & Preview Status */}
-          <div className="flex items-center justify-between mb-6">
-            <button
-              onClick={() => navigateTo({ page: 'home', post: undefined })}
-              className="inline-flex items-center gap-2 text-xs font-mono text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors group cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
-              <span>BACK TO ALL DISPATCHES</span>
-            </button>
-            
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--color-surface-secondary)] border border-[var(--color-border)] text-[11px] font-mono text-[var(--color-accent)] font-semibold shadow-xs">
-              <Eye className="w-3.5 h-3.5" />
-              <span>PREVIEW MODE</span>
-            </div>
-          </div>
-
-          {/* 1. Title */}
-          <div className="space-y-3 mb-6 pb-4 border-b border-[var(--color-border)]">
-            <div className="flex flex-wrap items-center gap-2.5 text-xs font-mono text-[var(--color-text-muted)]">
-              <span className="px-2.5 py-0.5 rounded-full bg-[var(--color-surface-secondary)] text-[var(--color-accent)] font-semibold uppercase tracking-wider border border-[var(--color-border)]">
-                {post.category}
-              </span>
-              <span>•</span>
-              <span className="flex items-center gap-1 text-[var(--color-text-secondary)]">
-                <Clock className="w-3.5 h-3.5 text-[var(--color-accent)]" />
-                {post.readTime}
-              </span>
-              <span>•</span>
-              <span>{formatEditorialDate(post.createdAt)}</span>
-            </div>
-
-            <h1 className="blog-title font-heading font-bold text-[28px] sm:text-[34px] md:text-[40px] leading-[1.2] tracking-[-0.02em] text-[var(--color-text-primary)] break-words">
-              {post.title}
-            </h1>
-          </div>
-
-          {/* 2. Image post at side with buttons */}
-          <div className="p-5 sm:p-7 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-md mb-8">
-            <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-6 sm:gap-8">
-              {/* Post image at side */}
-              <div className="w-full sm:w-1/2 md:w-5/12 aspect-[4/3] rounded-xl overflow-hidden shrink-0 border border-[var(--color-border)] bg-[var(--color-surface-secondary)] relative group shadow-sm">
-                <img
-                  src={imageUrl}
-                  alt={post.title}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-white text-[10px] font-mono font-medium tracking-wide">
-                  POST PREVIEW
-                </div>
-              </div>
-
-              {/* Buttons at side */}
-              <div className="w-full sm:w-1/2 md:w-7/12 flex flex-col justify-center space-y-4">
-                {post.excerpt && (
-                  <p className="text-xs sm:text-sm text-[var(--color-text-secondary)] font-heading leading-relaxed line-clamp-3">
-                    {post.excerpt}
-                  </p>
-                )}
-
-                <div className="space-y-3 pt-1">
-                  {/* Primary Unlock Button: checks click, triggers popunder, unlocks content */}
-                  <button
-                    type="button"
-                    onClick={handleUnlockClick}
-                    className="w-full px-6 py-4 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-heading font-bold text-sm sm:text-base tracking-wide flex items-center justify-center gap-3 shadow-lg shadow-[var(--color-accent)]/25 hover:shadow-xl hover:shadow-[var(--color-accent)]/35 active:scale-[0.98] transition-all duration-200 cursor-pointer group"
-                  >
-                    <BookOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                    <span>{settings.previewMode?.buttonText || 'Unlock Full Post'}</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </button>
-
-                  {/* Secondary buttons at side */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleCopyLink}
-                      className="flex-1 py-2.5 px-3 rounded-xl bg-[var(--color-surface-secondary)] hover:bg-[var(--color-surface)] border border-[var(--color-border)] text-xs font-mono text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                      title="Copy dispatch link"
-                    >
-                      {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedLink ? 'Link Copied' : 'Copy Link'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleShareNative}
-                      className="flex-1 py-2.5 px-3 rounded-xl bg-[var(--color-surface-secondary)] hover:bg-[var(--color-surface)] border border-[var(--color-border)] text-xs font-mono text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                      title="Share dispatch"
-                    >
-                      <Share2 className="w-3.5 h-3.5" />
-                      <span>Share</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--color-text-dim)] pt-1">
-                  <span>Free Instant Access</span>
-                  <span>•</span>
-                  <span>Est. {post.readTime}</span>
-                  <span>•</span>
-                  <span>Click to view full story</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 3. Ad at down: remaining space */}
-          <div className="pt-2 pb-10 space-y-4">
-            <AdBanner format="preview-showcase" />
-          </div>
-        </article>
-      </div>
-    );
-  }
-
-  // UNLOCKED STATE: Full Blog Post Experience
   return (
     <div className="min-h-screen pb-20 w-full max-w-full overflow-x-hidden">
       {/* Dynamic Top Reading Progress Bar */}
