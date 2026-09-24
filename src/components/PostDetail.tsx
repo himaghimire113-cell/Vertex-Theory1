@@ -19,7 +19,6 @@ import {
   Loader2,
   Tag,
   ArrowRight,
-  Unlock,
   BookOpen,
   Eye
 } from 'lucide-react';
@@ -95,26 +94,9 @@ export const PostDetail: React.FC<PostDetailProps> = ({
       console.warn('Popunder trigger:', e);
     }
 
-    // 2. Button checks if it was clicked, then unlocks the full content
+    // 2. Button checks if it was clicked, unlocks the full content and returns view to top
     setIsUnlocked(true);
-
-    try {
-      confetti({
-        particleCount: 50,
-        spread: 70,
-        origin: { y: 0.65 }
-      });
-    } catch {
-      // Confetti fallback
-    }
-  };
-
-  const getTeaserText = (content: string) => {
-    const parts = content.split('\n\n');
-    if (parts.length > 2) {
-      return parts.slice(0, 2).join('\n\n');
-    }
-    return content.slice(0, 420) + (content.length > 420 ? '...' : '');
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   const imageUrl = resolveDirectImageUrl(post.coverImage);
@@ -276,6 +258,128 @@ export const PostDetail: React.FC<PostDetailProps> = ({
     .filter((p) => p.id !== post.id && p.published)
     .slice(0, 2);
 
+  // PREVIEW MODE: Just its title and image post at side with buttons and ad at down
+  if (!isUnlocked) {
+    return (
+      <div className="min-h-screen pb-20 w-full max-w-full overflow-x-hidden">
+        <article className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10 w-full min-w-0 overflow-x-hidden">
+          {/* Top Bar: Return Link & Preview Status */}
+          <div className="flex items-center justify-between mb-6">
+            <button
+              onClick={() => navigateTo({ page: 'home', post: undefined })}
+              className="inline-flex items-center gap-2 text-xs font-mono text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors group cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+              <span>BACK TO ALL DISPATCHES</span>
+            </button>
+            
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--color-surface-secondary)] border border-[var(--color-border)] text-[11px] font-mono text-[var(--color-accent)] font-semibold shadow-xs">
+              <Eye className="w-3.5 h-3.5" />
+              <span>PREVIEW MODE</span>
+            </div>
+          </div>
+
+          {/* 1. Title */}
+          <div className="space-y-3 mb-6 pb-4 border-b border-[var(--color-border)]">
+            <div className="flex flex-wrap items-center gap-2.5 text-xs font-mono text-[var(--color-text-muted)]">
+              <span className="px-2.5 py-0.5 rounded-full bg-[var(--color-surface-secondary)] text-[var(--color-accent)] font-semibold uppercase tracking-wider border border-[var(--color-border)]">
+                {post.category}
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1 text-[var(--color-text-secondary)]">
+                <Clock className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                {post.readTime}
+              </span>
+              <span>•</span>
+              <span>{formatEditorialDate(post.createdAt)}</span>
+            </div>
+
+            <h1 className="blog-title font-heading font-bold text-[28px] sm:text-[34px] md:text-[40px] leading-[1.2] tracking-[-0.02em] text-[var(--color-text-primary)] break-words">
+              {post.title}
+            </h1>
+          </div>
+
+          {/* 2. Image post at side with buttons */}
+          <div className="p-5 sm:p-7 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-md mb-8">
+            <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-6 sm:gap-8">
+              {/* Post image at side */}
+              <div className="w-full sm:w-1/2 md:w-5/12 aspect-[4/3] rounded-xl overflow-hidden shrink-0 border border-[var(--color-border)] bg-[var(--color-surface-secondary)] relative group shadow-sm">
+                <img
+                  src={imageUrl}
+                  alt={post.title}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-white text-[10px] font-mono font-medium tracking-wide">
+                  POST PREVIEW
+                </div>
+              </div>
+
+              {/* Buttons at side */}
+              <div className="w-full sm:w-1/2 md:w-7/12 flex flex-col justify-center space-y-4">
+                {post.excerpt && (
+                  <p className="text-xs sm:text-sm text-[var(--color-text-secondary)] font-heading leading-relaxed line-clamp-3">
+                    {post.excerpt}
+                  </p>
+                )}
+
+                <div className="space-y-3 pt-1">
+                  {/* Primary Unlock Button: checks click, triggers popunder, unlocks content */}
+                  <button
+                    type="button"
+                    onClick={handleUnlockClick}
+                    className="w-full px-6 py-4 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-heading font-bold text-sm sm:text-base tracking-wide flex items-center justify-center gap-3 shadow-lg shadow-[var(--color-accent)]/25 hover:shadow-xl hover:shadow-[var(--color-accent)]/35 active:scale-[0.98] transition-all duration-200 cursor-pointer group"
+                  >
+                    <BookOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    <span>{settings.previewMode?.buttonText || 'Unlock Full Post'}</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </button>
+
+                  {/* Secondary buttons at side */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className="flex-1 py-2.5 px-3 rounded-xl bg-[var(--color-surface-secondary)] hover:bg-[var(--color-surface)] border border-[var(--color-border)] text-xs font-mono text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                      title="Copy dispatch link"
+                    >
+                      {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedLink ? 'Link Copied' : 'Copy Link'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleShareNative}
+                      className="flex-1 py-2.5 px-3 rounded-xl bg-[var(--color-surface-secondary)] hover:bg-[var(--color-surface)] border border-[var(--color-border)] text-xs font-mono text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                      title="Share dispatch"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Share</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--color-text-dim)] pt-1">
+                  <span>Free Instant Access</span>
+                  <span>•</span>
+                  <span>Est. {post.readTime}</span>
+                  <span>•</span>
+                  <span>Click to view full story</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Ad at down: remaining space */}
+          <div className="pt-2 pb-10 space-y-4">
+            <AdBanner format="preview-showcase" />
+          </div>
+        </article>
+      </div>
+    );
+  }
+
+  // UNLOCKED STATE: Full Blog Post Experience
   return (
     <div className="min-h-screen pb-20 w-full max-w-full overflow-x-hidden">
       {/* Dynamic Top Reading Progress Bar */}
@@ -288,7 +392,7 @@ export const PostDetail: React.FC<PostDetailProps> = ({
         {/* Back Link */}
         <button
           onClick={() => navigateTo({ page: 'home', post: undefined })}
-          className="inline-flex items-center gap-2 text-xs font-mono text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors mb-6 group"
+          className="inline-flex items-center gap-2 text-xs font-mono text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors mb-6 group cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
           <span>BACK TO ALL DISPATCHES</span>
@@ -310,12 +414,12 @@ export const PostDetail: React.FC<PostDetailProps> = ({
             </span>
           </div>
 
-          {/* Rule 1: Blog Title (H1) - Plus Jakarta Sans, 700 Bold, Desktop 36-42px | Mobile 28-32px, LH 1.2, Tracking -0.02em */}
+          {/* Rule 1: Blog Title (H1) */}
           <h1 className="blog-title font-heading font-bold text-[28px] sm:text-[32px] md:text-[40px] leading-[1.2] tracking-[-0.02em] text-[var(--color-text-primary)] break-words">
             {post.title}
           </h1>
 
-          {/* Rule 2: Excerpt / Summary - Plus Jakarta Sans, 500 Medium, Desktop 18-20px | Mobile 16px, LH 1.5, 80% opacity / muted */}
+          {/* Rule 2: Excerpt / Summary */}
           <p className="blog-excerpt font-heading font-medium text-[16px] md:text-[19px] leading-[1.5] text-[var(--color-text-muted)] opacity-90 max-w-[65ch] break-words">
             {post.excerpt}
           </p>
@@ -360,7 +464,7 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
               <button
                 onClick={handleCopyLink}
-                className="px-3 py-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-xs font-medium flex items-center gap-1.5 transition-colors"
+                className="px-3 py-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                 title="Copy canonical link"
               >
                 {copiedLink ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
@@ -369,7 +473,7 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
               <button
                 onClick={handleShareNative}
-                className="p-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/40 transition-colors sm:hidden"
+                className="p-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:border-[var(--color-accent)]/40 transition-colors sm:hidden cursor-pointer"
                 title="Share via device sheet"
               >
                 <Share2 className="w-4 h-4" />
@@ -377,7 +481,7 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
               <button
                 onClick={() => handleShareSocial('whatsapp')}
-                className="p-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[#25D366] hover:border-[#25D366]/40 transition-colors"
+                className="p-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[#25D366] hover:border-[#25D366]/40 transition-colors cursor-pointer"
                 title="Share on WhatsApp"
               >
                 <MessageCircle className="w-4 h-4" />
@@ -385,7 +489,7 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
               <button
                 onClick={() => handleShareSocial('facebook')}
-                className="p-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[#1877f2] hover:border-[#1877f2]/40 transition-colors"
+                className="p-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[#1877f2] hover:border-[#1877f2]/40 transition-colors cursor-pointer"
                 title="Share on Facebook"
               >
                 <Facebook className="w-4 h-4" />
@@ -393,7 +497,7 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
               <button
                 onClick={() => handleShareSocial('twitter')}
-                className="p-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[#1da1f2] hover:border-[#1da1f2]/40 transition-colors"
+                className="p-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[#1da1f2] hover:border-[#1da1f2]/40 transition-colors cursor-pointer"
                 title="Share on X / Twitter"
               >
                 <Twitter className="w-4 h-4" />
@@ -401,7 +505,7 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
               <button
                 onClick={() => handleShareSocial('linkedin')}
-                className="p-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[#0a66c2] hover:border-[#0a66c2]/40 transition-colors"
+                className="p-2 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[#0a66c2] hover:border-[#0a66c2]/40 transition-colors cursor-pointer"
                 title="Share on LinkedIn"
               >
                 <Linkedin className="w-4 h-4" />
@@ -423,88 +527,11 @@ export const PostDetail: React.FC<PostDetailProps> = ({
         {/* Sponsor Banner if active */}
         <SponsorBanner sponsor={settings.sponsorBanner} />
 
-        {/* Article Body: Preview Mode with Popunder Unlock vs Full Unlocked Content */}
-        {!isUnlocked ? (
-          <div className="pt-2 pb-12 space-y-6">
-            {/* Preview Status Pill */}
-            <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-[var(--color-surface-secondary)] border border-[var(--color-border)] text-xs font-mono text-[var(--color-text-secondary)]">
-              <span className="flex items-center gap-1.5 text-[var(--color-accent)] font-semibold">
-                <Eye className="w-3.5 h-3.5" />
-                PREVIEW MODE
-              </span>
-              <span className="text-[10px] text-[var(--color-text-dim)]">Unlock below to access full dispatch</span>
-            </div>
+        {/* Article Body: Restored clean article layout as it was before chat */}
+        <ArticleRenderer content={post.content} />
 
-            {/* Teaser text with smooth vertical fade-out */}
-            <div className="relative">
-              <div className="max-h-[300px] sm:max-h-[340px] overflow-hidden relative select-none">
-                <ArticleRenderer content={getTeaserText(post.content)} />
-                {/* Gradient fade mask */}
-                <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[var(--color-bg)] via-[var(--color-bg)]/85 to-transparent pointer-events-none" />
-              </div>
-
-              {/* Unlock Card with Popunder Trigger */}
-              <div className="relative z-10 -mt-6 p-6 sm:p-8 rounded-2xl border-2 border-[var(--color-accent)]/30 bg-[var(--color-surface)]/95 backdrop-blur-md shadow-xl text-center flex flex-col items-center space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center border border-[var(--color-accent)]/20 shadow-inner">
-                  <Unlock className="w-6 h-6" />
-                </div>
-
-                <div className="space-y-1.5 max-w-lg">
-                  <div className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--color-accent)] font-bold uppercase tracking-wider">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Full Dispatch Available</span>
-                  </div>
-                  <h3 className="font-heading font-bold text-xl sm:text-2xl text-[var(--color-text-primary)]">
-                    Continue Reading Full Article
-                  </h3>
-                  <p className="text-xs sm:text-sm text-[var(--color-text-muted)] max-w-md mx-auto leading-relaxed">
-                    Click below to unlock the complete post, in-depth architectural breakdown, and reference materials.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleUnlockClick}
-                  className="w-full sm:w-auto px-8 py-4 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-heading font-bold text-sm sm:text-base tracking-wide flex items-center justify-center gap-3 shadow-lg shadow-[var(--color-accent)]/25 hover:shadow-xl hover:shadow-[var(--color-accent)]/35 active:scale-[0.98] transition-all duration-200 cursor-pointer group"
-                >
-                  <BookOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  <span>{settings.previewMode?.buttonText || 'Unlock Full Article'}</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </button>
-
-                <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--color-text-dim)]">
-                  <span>Free Instant Access</span>
-                  <span>•</span>
-                  <span>Read Time: {post.readTime}</span>
-                  <span>•</span>
-                  <span>No Account Needed</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Down on remaining space: Banner Ads */}
-            <div className="pt-2">
-              <AdBanner format="preview-showcase" />
-            </div>
-          </div>
-        ) : (
-          <div className="pt-4 pb-12 space-y-6">
-            {/* Unlocked confirmation banner */}
-            <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-medium">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>FULL ARTICLE UNLOCKED</span>
-              </div>
-              <span className="text-[10px] text-[var(--color-text-dim)]">{post.readTime}</span>
-            </div>
-
-            {/* Complete Post Content */}
-            <ArticleRenderer content={post.content} />
-
-            {/* Down on remaining space: Horizontal Banner Ad */}
-            <AdBanner format="horizontal" />
-          </div>
-        )}
+        {/* Down on remaining space: Horizontal Banner Ad */}
+        <AdBanner format="horizontal" />
 
         {/* Embedded Affiliate Links Section if defined */}
         {post.affiliateLinks && post.affiliateLinks.length > 0 && (
