@@ -22,6 +22,11 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
     ctaText: 'Explore Platform →',
     url: '',
     badgeText: 'SPONSORED'
+  },
+  previewMode: {
+    enabled: true,
+    buttonText: 'Unlock Full Article',
+    popunderUrl: ''
   }
 };
 

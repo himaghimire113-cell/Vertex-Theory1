@@ -1565,6 +1565,78 @@ service cloud.firestore {
             </div>
           </div>
 
+          {/* Article Preview Mode & Popunder Ad Settings */}
+          <div className="p-5 rounded-2xl bg-[#12141c] border border-[#232733] space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <h4 className="font-heading font-bold text-sm text-white flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-[#ff5533]" />
+                  <span>Article Preview Mode & Popunder Settings</span>
+                </h4>
+                <p className="text-xs text-[#717688]">
+                  Opens dispatches with preview teaser, popunder unlock trigger, and banner ad placements.
+                </p>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={appearanceData.previewMode?.enabled ?? true}
+                  onChange={(e) =>
+                    setAppearanceData({
+                      ...appearanceData,
+                      previewMode: {
+                        ...appearanceData.previewMode,
+                        enabled: e.target.checked
+                      }
+                    })
+                  }
+                  className="w-4 h-4 rounded text-[#ff5533] bg-[#0c0d10] border-[#2b303e]"
+                />
+                <span className="text-xs text-white">Preview Mode Enabled</span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-mono text-[#9ca3af]">Unlock Button Text</label>
+                <input
+                  type="text"
+                  value={appearanceData.previewMode?.buttonText || 'Unlock Full Article'}
+                  onChange={(e) =>
+                    setAppearanceData({
+                      ...appearanceData,
+                      previewMode: {
+                        ...appearanceData.previewMode,
+                        buttonText: e.target.value
+                      }
+                    })
+                  }
+                  placeholder="Unlock Full Article"
+                  className="w-full px-3 py-2 rounded-lg bg-[#0c0d10] border border-[#262a37] text-white text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-mono text-[#9ca3af]">Optional Popunder Direct URL</label>
+                <input
+                  type="url"
+                  value={appearanceData.previewMode?.popunderUrl || ''}
+                  onChange={(e) =>
+                    setAppearanceData({
+                      ...appearanceData,
+                      previewMode: {
+                        ...appearanceData.previewMode,
+                        popunderUrl: e.target.value
+                      }
+                    })
+                  }
+                  placeholder="https://quge5.com/... or ad direct link (blank for default)"
+                  className="w-full px-3 py-2 rounded-lg bg-[#0c0d10] border border-[#262a37] text-white text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Announcement Bar */}
           <div className="p-5 rounded-2xl bg-[#12141c] border border-[#232733] space-y-4">
             <div className="flex items-center justify-between">

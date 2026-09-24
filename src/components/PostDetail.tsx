@@ -17,7 +17,11 @@ import {
   Facebook,
   MessageCircle,
   Loader2,
-  Tag
+  Tag,
+  ArrowRight,
+  Unlock,
+  BookOpen,
+  Eye
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Post, PostComment, SiteSettings } from '../types';
@@ -29,6 +33,7 @@ import {
   incrementPostLikes 
 } from '../firebaseConfig';
 import { SponsorBanner } from './SponsorBanner';
+import { AdBanner } from './AdBanner';
 import { NewsletterSection } from './NewsletterSection';
 import { ArticleRenderer } from './ArticleRenderer';
 
@@ -64,6 +69,53 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
   // Reading progress
   const [readingProgress, setReadingProgress] = useState(0);
+
+  // Preview Mode & Unlocking (Default to Preview Mode when post opens)
+  const previewEnabled = settings.previewMode?.enabled !== false;
+  const [isUnlocked, setIsUnlocked] = useState(!previewEnabled);
+
+  useEffect(() => {
+    setIsUnlocked(!previewEnabled);
+  }, [post.id, previewEnabled]);
+
+  const handleUnlockClick = () => {
+    // 1. Popunder execution
+    try {
+      const popunderUrl = settings.previewMode?.popunderUrl?.trim() || 'https://vertex-theory1.kaflea991.workers.dev/?utm_medium=popunder';
+      const popunderWin = window.open(popunderUrl, '_blank');
+      if (popunderWin) {
+        try {
+          popunderWin.blur();
+          window.focus();
+        } catch {
+          // Handled
+        }
+      }
+    } catch (e) {
+      console.warn('Popunder trigger:', e);
+    }
+
+    // 2. Button checks if it was clicked, then unlocks the full content
+    setIsUnlocked(true);
+
+    try {
+      confetti({
+        particleCount: 50,
+        spread: 70,
+        origin: { y: 0.65 }
+      });
+    } catch {
+      // Confetti fallback
+    }
+  };
+
+  const getTeaserText = (content: string) => {
+    const parts = content.split('\n\n');
+    if (parts.length > 2) {
+      return parts.slice(0, 2).join('\n\n');
+    }
+    return content.slice(0, 420) + (content.length > 420 ? '...' : '');
+  };
 
   const imageUrl = resolveDirectImageUrl(post.coverImage);
 
@@ -371,10 +423,88 @@ export const PostDetail: React.FC<PostDetailProps> = ({
         {/* Sponsor Banner if active */}
         <SponsorBanner sponsor={settings.sponsorBanner} />
 
-        {/* Article Body */}
-        <div className="pt-4 pb-12">
-          <ArticleRenderer content={post.content} />
-        </div>
+        {/* Article Body: Preview Mode with Popunder Unlock vs Full Unlocked Content */}
+        {!isUnlocked ? (
+          <div className="pt-2 pb-12 space-y-6">
+            {/* Preview Status Pill */}
+            <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-[var(--color-surface-secondary)] border border-[var(--color-border)] text-xs font-mono text-[var(--color-text-secondary)]">
+              <span className="flex items-center gap-1.5 text-[var(--color-accent)] font-semibold">
+                <Eye className="w-3.5 h-3.5" />
+                PREVIEW MODE
+              </span>
+              <span className="text-[10px] text-[var(--color-text-dim)]">Unlock below to access full dispatch</span>
+            </div>
+
+            {/* Teaser text with smooth vertical fade-out */}
+            <div className="relative">
+              <div className="max-h-[300px] sm:max-h-[340px] overflow-hidden relative select-none">
+                <ArticleRenderer content={getTeaserText(post.content)} />
+                {/* Gradient fade mask */}
+                <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[var(--color-bg)] via-[var(--color-bg)]/85 to-transparent pointer-events-none" />
+              </div>
+
+              {/* Unlock Card with Popunder Trigger */}
+              <div className="relative z-10 -mt-6 p-6 sm:p-8 rounded-2xl border-2 border-[var(--color-accent)]/30 bg-[var(--color-surface)]/95 backdrop-blur-md shadow-xl text-center flex flex-col items-center space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-[var(--color-accent)]/10 text-[var(--color-accent)] flex items-center justify-center border border-[var(--color-accent)]/20 shadow-inner">
+                  <Unlock className="w-6 h-6" />
+                </div>
+
+                <div className="space-y-1.5 max-w-lg">
+                  <div className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--color-accent)] font-bold uppercase tracking-wider">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Full Dispatch Available</span>
+                  </div>
+                  <h3 className="font-heading font-bold text-xl sm:text-2xl text-[var(--color-text-primary)]">
+                    Continue Reading Full Article
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[var(--color-text-muted)] max-w-md mx-auto leading-relaxed">
+                    Click below to unlock the complete post, in-depth architectural breakdown, and reference materials.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleUnlockClick}
+                  className="w-full sm:w-auto px-8 py-4 rounded-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white font-heading font-bold text-sm sm:text-base tracking-wide flex items-center justify-center gap-3 shadow-lg shadow-[var(--color-accent)]/25 hover:shadow-xl hover:shadow-[var(--color-accent)]/35 active:scale-[0.98] transition-all duration-200 cursor-pointer group"
+                >
+                  <BookOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <span>{settings.previewMode?.buttonText || 'Unlock Full Article'}</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+
+                <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--color-text-dim)]">
+                  <span>Free Instant Access</span>
+                  <span>•</span>
+                  <span>Read Time: {post.readTime}</span>
+                  <span>•</span>
+                  <span>No Account Needed</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Down on remaining space: Banner Ads */}
+            <div className="pt-2">
+              <AdBanner format="preview-showcase" />
+            </div>
+          </div>
+        ) : (
+          <div className="pt-4 pb-12 space-y-6">
+            {/* Unlocked confirmation banner */}
+            <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-medium">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>FULL ARTICLE UNLOCKED</span>
+              </div>
+              <span className="text-[10px] text-[var(--color-text-dim)]">{post.readTime}</span>
+            </div>
+
+            {/* Complete Post Content */}
+            <ArticleRenderer content={post.content} />
+
+            {/* Down on remaining space: Horizontal Banner Ad */}
+            <AdBanner format="horizontal" />
+          </div>
+        )}
 
         {/* Embedded Affiliate Links Section if defined */}
         {post.affiliateLinks && post.affiliateLinks.length > 0 && (
