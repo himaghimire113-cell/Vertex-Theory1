@@ -29,7 +29,6 @@ import {
   incrementPostLikes 
 } from '../firebaseConfig';
 import { SponsorBanner } from './SponsorBanner';
-import { AdBanner } from './AdBanner';
 import { NewsletterSection } from './NewsletterSection';
 import { ArticleRenderer } from './ArticleRenderer';
 
@@ -374,9 +373,6 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
         {/* Article Body: Restored clean article layout as it was before chat */}
         <ArticleRenderer content={post.content} />
-
-        {/* Down on remaining space: Horizontal Banner Ad */}
-        <AdBanner format="horizontal" />
 
         {/* Embedded Affiliate Links Section if defined */}
         {post.affiliateLinks && post.affiliateLinks.length > 0 && (
