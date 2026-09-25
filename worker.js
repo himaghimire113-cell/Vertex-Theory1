@@ -362,6 +362,9 @@ function renderCrawlerHtml(post, canonicalUrl) {
   <meta name="description" content="${escapeHtml(post.description)}">
   <link rel="canonical" href="${escapeHtml(canonicalUrl)}">
 
+  <!-- Google AdSense Site Verification & Ad Engine -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5897761060403747" crossorigin="anonymous"></script>
+
   <!-- Favicon & Touch Icons (High-Res 512x512) -->
   <link rel="icon" type="image/svg+xml" sizes="any" href="/favicon.svg">
   <link rel="icon" type="image/svg+xml" sizes="512x512" href="/icon-512.svg">

@@ -526,6 +526,9 @@ function renderCrawlerHtml(post: PostMetadata, canonicalUrl: string): string {
   <meta name="description" content="${escapeHtml(post.description)}">
   <link rel="canonical" href="${escapeHtml(canonicalUrl)}">
 
+  <!-- Google AdSense Site Verification & Ad Engine -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5897761060403747" crossorigin="anonymous"></script>
+
   <!-- Favicon & Icons -->
   <link rel="icon" type="image/svg+xml" sizes="any" href="/favicon.svg">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
@@ -615,6 +618,9 @@ function renderDefaultCrawlerHtml(canonicalUrl: string): string {
   <title>Vertex Theory — Thoughts on Design, Technology &amp; Culture</title>
   <meta name="description" content="An independent publication exploring visual design, computing architectures, philosophy, and digital culture.">
   <link rel="canonical" href="${escapeHtml(canonicalUrl)}">
+
+  <!-- Google AdSense Site Verification & Ad Engine -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5897761060403747" crossorigin="anonymous"></script>
 
   <!-- Favicon & Icons -->
   <link rel="icon" type="image/svg+xml" sizes="any" href="/favicon.svg">
