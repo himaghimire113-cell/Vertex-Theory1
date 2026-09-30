@@ -1592,6 +1592,62 @@ service cloud.firestore {
               className="w-full px-3 py-2 rounded-lg bg-[#0c0d10] border border-[#262a37] text-white text-xs"
             />
           </div>
+
+          {/* Adsterra Ad Network Integration */}
+          <div className="p-5 rounded-2xl bg-[#12141c] border border-[#232733] space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <h4 className="font-heading font-bold text-sm text-white flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-[#ff5533]" />
+                  <span>Adsterra Ad Network</span>
+                </h4>
+                <p className="text-xs text-[#717688]">
+                  Enable your Adsterra network scripts (Popunder, Social Bar, Banner, or Native ad code).
+                </p>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={appearanceData.adsterra?.enabled ?? false}
+                  onChange={(e) =>
+                    setAppearanceData({
+                      ...appearanceData,
+                      adsterra: {
+                        enabled: e.target.checked,
+                        code: appearanceData.adsterra?.code || ''
+                      }
+                    })
+                  }
+                  className="w-4 h-4 rounded text-[#ff5533] bg-[#0c0d10] border-[#2b303e]"
+                />
+                <span className="text-xs text-white">Adsterra Active</span>
+              </label>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-mono text-[#9ca3af]">
+                Adsterra Code / Script Tag / Invocation Code
+              </label>
+              <textarea
+                rows={4}
+                value={appearanceData.adsterra?.code || ''}
+                onChange={(e) =>
+                  setAppearanceData({
+                    ...appearanceData,
+                    adsterra: {
+                      enabled: appearanceData.adsterra?.enabled ?? true,
+                      code: e.target.value
+                    }
+                  })
+                }
+                placeholder="<script type='text/javascript' src='//...adsterra.../invoke.js'></script> or paste your Adsterra snippet here"
+                className="w-full px-3 py-2.5 rounded-lg bg-[#0c0d10] border border-[#262a37] text-white text-xs font-mono focus:border-[#ff5533] outline-hidden resize-y"
+              />
+              <p className="text-[11px] text-[#717688]">
+                Paste the full script tag or invocation snippet provided in your Adsterra publisher dashboard.
+              </p>
+            </div>
+          </div>
         </form>
       )}
 

@@ -82,6 +82,10 @@ export interface SiteSettings {
     url: string;
     badgeText?: string;
   };
+  adsterra?: {
+    enabled: boolean;
+    code: string;
+  };
 }
 
 export interface FirebaseCustomConfig {

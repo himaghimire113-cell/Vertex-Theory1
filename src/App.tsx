@@ -32,6 +32,7 @@ import { AboutPage } from './components/AboutPage';
 import { ContactPage } from './components/ContactPage';
 import { SponsorBanner } from './components/SponsorBanner';
 import { NewsletterSection } from './components/NewsletterSection';
+import { AdsterraScript } from './components/AdsterraScript';
 import { INITIAL_SITE_SETTINGS } from './data/defaultData';
 import { trackPageView, trackPostView, trackSearch } from './utils/analytics';
 
@@ -530,6 +531,9 @@ export default function App() {
 
       {/* Footer */}
       <Footer settings={settings} isAdminLoggedIn={Boolean(adminUser)} />
+
+      {/* Adsterra Ad Network Integration */}
+      <AdsterraScript adsterra={settings.adsterra} />
     </div>
   );
 }
