@@ -28,7 +28,8 @@ import {
   Loader2,
   HelpCircle,
   Database,
-  User
+  User,
+  Layers
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { 
@@ -120,6 +121,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [appearanceData, setAppearanceData] = useState<SiteSettings>(settings);
   const [savingAppearance, setSavingAppearance] = useState(false);
   const [appearanceSaved, setAppearanceSaved] = useState(false);
+  const [adsterraFormatTab, setAdsterraFormatTab] = useState<
+    'popunder' | 'socialbar' | 'display' | 'native' | 'direct' | 'raw'
+  >('popunder');
 
   // Subscribers State
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
@@ -1593,19 +1597,25 @@ service cloud.firestore {
             />
           </div>
 
-          {/* Adsterra Ad Network Integration */}
-          <div className="p-5 rounded-2xl bg-[#12141c] border border-[#232733] space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <h4 className="font-heading font-bold text-sm text-white flex items-center gap-2">
+          {/* Adsterra Ad Network Integration (All Formats) */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-[#12141c] border border-[#232733] space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#232733]">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
                   <Globe className="w-4 h-4 text-[#ff5533]" />
-                  <span>Adsterra Ad Network</span>
-                </h4>
+                  <h4 className="font-heading font-bold text-sm text-white">
+                    Adsterra Monetization Engine (All Ad Units)
+                  </h4>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-[#1d2230] text-[#ff5533] border border-[#2b303e]">
+                    Full Network
+                  </span>
+                </div>
                 <p className="text-xs text-[#717688]">
-                  Enable your Adsterra network scripts (Popunder, Social Bar, Banner, or Native ad code).
+                  Run all Adsterra ad formats: Popunder, Social Bar, Display Banners (728x90, 300x250), Native Banners, and Direct Links.
                 </p>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer">
+
+              <label className="flex items-center gap-2 cursor-pointer self-start sm:self-auto bg-[#0c0d10] px-3 py-1.5 rounded-lg border border-[#262a37]">
                 <input
                   type="checkbox"
                   checked={appearanceData.adsterra?.enabled ?? false}
@@ -1614,38 +1624,311 @@ service cloud.firestore {
                       ...appearanceData,
                       adsterra: {
                         enabled: e.target.checked,
+                        popunderCode: appearanceData.adsterra?.popunderCode || '',
+                        socialBarCode: appearanceData.adsterra?.socialBarCode || '',
+                        displayBannerCode: appearanceData.adsterra?.displayBannerCode || '',
+                        nativeBannerCode: appearanceData.adsterra?.nativeBannerCode || '',
+                        directLinkUrl: appearanceData.adsterra?.directLinkUrl || '',
                         code: appearanceData.adsterra?.code || ''
                       }
                     })
                   }
                   className="w-4 h-4 rounded text-[#ff5533] bg-[#0c0d10] border-[#2b303e]"
                 />
-                <span className="text-xs text-white">Adsterra Active</span>
+                <span className="text-xs font-semibold text-white">Network Active</span>
               </label>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono text-[#9ca3af]">
-                Adsterra Code / Script Tag / Invocation Code
-              </label>
-              <textarea
-                rows={4}
-                value={appearanceData.adsterra?.code || ''}
-                onChange={(e) =>
-                  setAppearanceData({
-                    ...appearanceData,
-                    adsterra: {
-                      enabled: appearanceData.adsterra?.enabled ?? true,
-                      code: e.target.value
+            {/* Format Selector Navigation Pills */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono text-[#9ca3af]">Select Ad Format to Configure:</span>
+                <span className="text-[11px] font-mono text-[#ff5533]">
+                  {[
+                    appearanceData.adsterra?.popunderCode,
+                    appearanceData.adsterra?.socialBarCode,
+                    appearanceData.adsterra?.displayBannerCode,
+                    appearanceData.adsterra?.nativeBannerCode,
+                    appearanceData.adsterra?.directLinkUrl,
+                    appearanceData.adsterra?.code
+                  ].filter(Boolean).length}{' '}
+                  Format(s) Configured
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {[
+                  {
+                    id: 'popunder',
+                    label: 'Popunder',
+                    active: !!appearanceData.adsterra?.popunderCode?.trim()
+                  },
+                  {
+                    id: 'socialbar',
+                    label: 'Social Bar',
+                    active: !!appearanceData.adsterra?.socialBarCode?.trim()
+                  },
+                  {
+                    id: 'display',
+                    label: 'Display Banner',
+                    active: !!appearanceData.adsterra?.displayBannerCode?.trim()
+                  },
+                  {
+                    id: 'native',
+                    label: 'Native Banner',
+                    active: !!appearanceData.adsterra?.nativeBannerCode?.trim()
+                  },
+                  {
+                    id: 'direct',
+                    label: 'Direct Link',
+                    active: !!appearanceData.adsterra?.directLinkUrl?.trim()
+                  },
+                  {
+                    id: 'raw',
+                    label: 'Combined / Raw Code',
+                    active: !!appearanceData.adsterra?.code?.trim()
+                  }
+                ].map((fmt) => {
+                  const isSelected = adsterraFormatTab === fmt.id;
+                  return (
+                    <button
+                      key={fmt.id}
+                      type="button"
+                      onClick={() => setAdsterraFormatTab(fmt.id as any)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer border ${
+                        isSelected
+                          ? 'bg-[#ff5533] text-white border-[#ff5533] shadow-xs'
+                          : 'bg-[#0c0d10] text-[#9ca3af] border-[#262a37] hover:border-[#3b4154]'
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          fmt.active ? (isSelected ? 'bg-white' : 'bg-emerald-400') : 'bg-[#4b5162]'
+                        }`}
+                      />
+                      <span>{fmt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Individual Format Configuration Panels */}
+            <div className="p-4 rounded-xl bg-[#0c0d10] border border-[#232733] space-y-3">
+              {adsterraFormatTab === 'popunder' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-mono text-white font-semibold flex items-center gap-2">
+                      <span>Popunder Ad Code</span>
+                      <span className="text-[10px] text-[#717688] font-normal">(Triggers on click)</span>
+                    </label>
+                    <span className="text-[10px] text-[#717688]">Global Page Scope</span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={appearanceData.adsterra?.popunderCode || ''}
+                    onChange={(e) =>
+                      setAppearanceData({
+                        ...appearanceData,
+                        adsterra: {
+                          enabled: appearanceData.adsterra?.enabled ?? true,
+                          popunderCode: e.target.value,
+                          socialBarCode: appearanceData.adsterra?.socialBarCode || '',
+                          displayBannerCode: appearanceData.adsterra?.displayBannerCode || '',
+                          nativeBannerCode: appearanceData.adsterra?.nativeBannerCode || '',
+                          directLinkUrl: appearanceData.adsterra?.directLinkUrl || '',
+                          code: appearanceData.adsterra?.code || ''
+                        }
+                      })
                     }
-                  })
-                }
-                placeholder="<script type='text/javascript' src='//...adsterra.../invoke.js'></script> or paste your Adsterra snippet here"
-                className="w-full px-3 py-2.5 rounded-lg bg-[#0c0d10] border border-[#262a37] text-white text-xs font-mono focus:border-[#ff5533] outline-hidden resize-y"
-              />
-              <p className="text-[11px] text-[#717688]">
-                Paste the full script tag or invocation snippet provided in your Adsterra publisher dashboard.
-              </p>
+                    placeholder="<script type='text/javascript' src='//...adsterra.../invoke.js'></script>"
+                    className="w-full px-3 py-2.5 rounded-lg bg-[#12141c] border border-[#262a37] text-white text-xs font-mono focus:border-[#ff5533] outline-hidden resize-y"
+                  />
+                  <p className="text-[11px] text-[#717688]">
+                    Adsterra Popunder opens a sponsor tab behind the browser on first visitor clicks. Highest CPM yield format.
+                  </p>
+                </div>
+              )}
+
+              {adsterraFormatTab === 'socialbar' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-mono text-white font-semibold flex items-center gap-2">
+                      <span>Social Bar / In-Page Push Code</span>
+                      <span className="text-[10px] text-[#717688] font-normal">(Floating notification widgets)</span>
+                    </label>
+                    <span className="text-[10px] text-[#717688]">Floating Global</span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={appearanceData.adsterra?.socialBarCode || ''}
+                    onChange={(e) =>
+                      setAppearanceData({
+                        ...appearanceData,
+                        adsterra: {
+                          enabled: appearanceData.adsterra?.enabled ?? true,
+                          popunderCode: appearanceData.adsterra?.popunderCode || '',
+                          socialBarCode: e.target.value,
+                          displayBannerCode: appearanceData.adsterra?.displayBannerCode || '',
+                          nativeBannerCode: appearanceData.adsterra?.nativeBannerCode || '',
+                          directLinkUrl: appearanceData.adsterra?.directLinkUrl || '',
+                          code: appearanceData.adsterra?.code || ''
+                        }
+                      })
+                    }
+                    placeholder="<script type='text/javascript' src='//...adsterra.../invoke.js'></script>"
+                    className="w-full px-3 py-2.5 rounded-lg bg-[#12141c] border border-[#262a37] text-white text-xs font-mono focus:border-[#ff5533] outline-hidden resize-y"
+                  />
+                  <p className="text-[11px] text-[#717688]">
+                    Social Bar displays dynamic in-page notifications, conversation badges, or custom icons without disrupting readers.
+                  </p>
+                </div>
+              )}
+
+              {adsterraFormatTab === 'display' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-mono text-white font-semibold flex items-center gap-2">
+                      <span>Display Banner Code (728x90, 300x250, 468x60, 320x50)</span>
+                    </label>
+                    <span className="text-[10px] text-[#717688]">Placed in Articles & Feed</span>
+                  </div>
+                  <textarea
+                    rows={5}
+                    value={appearanceData.adsterra?.displayBannerCode || ''}
+                    onChange={(e) =>
+                      setAppearanceData({
+                        ...appearanceData,
+                        adsterra: {
+                          enabled: appearanceData.adsterra?.enabled ?? true,
+                          popunderCode: appearanceData.adsterra?.popunderCode || '',
+                          socialBarCode: appearanceData.adsterra?.socialBarCode || '',
+                          displayBannerCode: e.target.value,
+                          nativeBannerCode: appearanceData.adsterra?.nativeBannerCode || '',
+                          directLinkUrl: appearanceData.adsterra?.directLinkUrl || '',
+                          code: appearanceData.adsterra?.code || ''
+                        }
+                      })
+                    }
+                    placeholder={`<script type="text/javascript">
+\tatOptions = {
+\t\t'key' : '...',
+\t\t'format' : 'iframe',
+\t\t'height' : 90,
+\t\t'width' : 728,
+\t\t'params' : {}
+\t};
+</script>
+<script type="text/javascript" src="//.../invoke.js"></script>`}
+                    className="w-full px-3 py-2.5 rounded-lg bg-[#12141c] border border-[#262a37] text-white text-xs font-mono focus:border-[#ff5533] outline-hidden resize-y"
+                  />
+                  <p className="text-[11px] text-[#717688]">
+                    Renders in an isolated sandbox to prevent script conflicts with other banners. Automatically fits 728x90, 300x250, or responsive sizes.
+                  </p>
+                </div>
+              )}
+
+              {adsterraFormatTab === 'native' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-mono text-white font-semibold flex items-center gap-2">
+                      <span>Native Banner Code (e.g. 4x1 or 3x2 Grid Widget)</span>
+                    </label>
+                    <span className="text-[10px] text-[#717688]">Placed below Article Body</span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={appearanceData.adsterra?.nativeBannerCode || ''}
+                    onChange={(e) =>
+                      setAppearanceData({
+                        ...appearanceData,
+                        adsterra: {
+                          enabled: appearanceData.adsterra?.enabled ?? true,
+                          popunderCode: appearanceData.adsterra?.popunderCode || '',
+                          socialBarCode: appearanceData.adsterra?.socialBarCode || '',
+                          displayBannerCode: appearanceData.adsterra?.displayBannerCode || '',
+                          nativeBannerCode: e.target.value,
+                          directLinkUrl: appearanceData.adsterra?.directLinkUrl || '',
+                          code: appearanceData.adsterra?.code || ''
+                        }
+                      })
+                    }
+                    placeholder="<script async='async' data-cfasync='false' src='//.../invoke.js'></script><div id='container-...'></div>"
+                    className="w-full px-3 py-2.5 rounded-lg bg-[#12141c] border border-[#262a37] text-white text-xs font-mono focus:border-[#ff5533] outline-hidden resize-y"
+                  />
+                  <p className="text-[11px] text-[#717688]">
+                    Native ads blend with editorial dispatches and content recommendation cards, delivering high click-through rates.
+                  </p>
+                </div>
+              )}
+
+              {adsterraFormatTab === 'direct' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-mono text-white font-semibold flex items-center gap-2">
+                      <span>Direct Link / SmartLink URL</span>
+                    </label>
+                    <span className="text-[10px] text-[#717688]">Direct Monetization</span>
+                  </div>
+                  <input
+                    type="url"
+                    value={appearanceData.adsterra?.directLinkUrl || ''}
+                    onChange={(e) =>
+                      setAppearanceData({
+                        ...appearanceData,
+                        adsterra: {
+                          enabled: appearanceData.adsterra?.enabled ?? true,
+                          popunderCode: appearanceData.adsterra?.popunderCode || '',
+                          socialBarCode: appearanceData.adsterra?.socialBarCode || '',
+                          displayBannerCode: appearanceData.adsterra?.displayBannerCode || '',
+                          nativeBannerCode: appearanceData.adsterra?.nativeBannerCode || '',
+                          directLinkUrl: e.target.value,
+                          code: appearanceData.adsterra?.code || ''
+                        }
+                      })
+                    }
+                    placeholder="https://www.profitablecreativeformat.com/..."
+                    className="w-full px-3 py-2.5 rounded-lg bg-[#12141c] border border-[#262a37] text-white text-xs font-mono focus:border-[#ff5533] outline-hidden"
+                  />
+                  <p className="text-[11px] text-[#717688]">
+                    Direct SmartLink can be used for custom calls-to-action or promotional buttons.
+                  </p>
+                </div>
+              )}
+
+              {adsterraFormatTab === 'raw' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-mono text-white font-semibold flex items-center gap-2">
+                      <span>Combined / Universal Adsterra Code</span>
+                    </label>
+                    <span className="text-[10px] text-[#717688]">Multi-Tag Fallback</span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={appearanceData.adsterra?.code || ''}
+                    onChange={(e) =>
+                      setAppearanceData({
+                        ...appearanceData,
+                        adsterra: {
+                          enabled: appearanceData.adsterra?.enabled ?? true,
+                          popunderCode: appearanceData.adsterra?.popunderCode || '',
+                          socialBarCode: appearanceData.adsterra?.socialBarCode || '',
+                          displayBannerCode: appearanceData.adsterra?.displayBannerCode || '',
+                          nativeBannerCode: appearanceData.adsterra?.nativeBannerCode || '',
+                          directLinkUrl: appearanceData.adsterra?.directLinkUrl || '',
+                          code: e.target.value
+                        }
+                      })
+                    }
+                    placeholder="Paste any combined Adsterra scripts or custom network tags here..."
+                    className="w-full px-3 py-2.5 rounded-lg bg-[#12141c] border border-[#262a37] text-white text-xs font-mono focus:border-[#ff5533] outline-hidden resize-y"
+                  />
+                  <p className="text-[11px] text-[#717688]">
+                    Use this field if you received a single combined multi-tag script containing all your Adsterra units.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </form>

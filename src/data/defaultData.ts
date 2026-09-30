@@ -25,7 +25,12 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
   },
   adsterra: {
     enabled: false,
-    code: ''
+    code: '',
+    popunderCode: '',
+    socialBarCode: '',
+    displayBannerCode: '',
+    nativeBannerCode: '',
+    directLinkUrl: ''
   }
 };
 

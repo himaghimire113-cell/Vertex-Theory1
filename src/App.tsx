@@ -33,6 +33,7 @@ import { ContactPage } from './components/ContactPage';
 import { SponsorBanner } from './components/SponsorBanner';
 import { NewsletterSection } from './components/NewsletterSection';
 import { AdsterraScript } from './components/AdsterraScript';
+import { AdsterraSlot } from './components/AdsterraSlot';
 import { INITIAL_SITE_SETTINGS } from './data/defaultData';
 import { trackPageView, trackPostView, trackSearch } from './utils/analytics';
 
@@ -366,6 +367,15 @@ export default function App() {
               {/* Sponsor Banner Slot */}
               {!isSearching && <SponsorBanner sponsor={settings.sponsorBanner} />}
 
+              {/* Adsterra Display Banner (e.g. 728x90 Leaderboard) */}
+              {!isSearching && settings.adsterra?.enabled && settings.adsterra.displayBannerCode && (
+                <AdsterraSlot
+                  code={settings.adsterra.displayBannerCode}
+                  format="banner"
+                  label="SPONSORED LEADERBOARD"
+                />
+              )}
+
               {/* Dispatches Grid Section */}
               <section className="space-y-6 pt-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--color-border)]">
@@ -521,6 +531,15 @@ export default function App() {
                   </motion.div>
                 )}
               </section>
+
+              {/* Adsterra Native Banner (e.g. 4x1 or 3x2 Grid Widget) */}
+              {!isSearching && settings.adsterra?.enabled && settings.adsterra.nativeBannerCode && (
+                <AdsterraSlot
+                  code={settings.adsterra.nativeBannerCode}
+                  format="native"
+                  label="CURATED RECOMMENDATIONS"
+                />
+              )}
 
               {/* Newsletter Capture Banner */}
               {!isSearching && <NewsletterSection source="homepage-footer" />}

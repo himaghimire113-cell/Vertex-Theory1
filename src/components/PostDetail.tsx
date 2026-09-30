@@ -29,6 +29,7 @@ import {
   incrementPostLikes 
 } from '../firebaseConfig';
 import { SponsorBanner } from './SponsorBanner';
+import { AdsterraSlot } from './AdsterraSlot';
 import { NewsletterSection } from './NewsletterSection';
 import { ArticleRenderer } from './ArticleRenderer';
 
@@ -374,6 +375,15 @@ export const PostDetail: React.FC<PostDetailProps> = ({
         {/* Article Body: Restored clean article layout as it was before chat */}
         <ArticleRenderer content={post.content} />
 
+        {/* Adsterra Display Banner (728x90, 300x250, etc.) */}
+        {settings.adsterra?.enabled && settings.adsterra.displayBannerCode && (
+          <AdsterraSlot
+            code={settings.adsterra.displayBannerCode}
+            format="banner"
+            label="SPONSORED HIGHLIGHT"
+          />
+        )}
+
         {/* Embedded Affiliate Links Section if defined */}
         {post.affiliateLinks && post.affiliateLinks.length > 0 && (
           <div className="my-8 p-6 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] space-y-3">
@@ -424,6 +434,15 @@ export const PostDetail: React.FC<PostDetailProps> = ({
               </span>
             ))}
           </div>
+        )}
+
+        {/* Adsterra Native Banner (e.g. 4x1 or 3x2 Grid Recommendation Widget) */}
+        {settings.adsterra?.enabled && settings.adsterra.nativeBannerCode && (
+          <AdsterraSlot
+            code={settings.adsterra.nativeBannerCode}
+            format="native"
+            label="RECOMMENDED DISPATCHES & SPONSORS"
+          />
         )}
 
         {/* Author Bio Box */}

@@ -84,7 +84,12 @@ export interface SiteSettings {
   };
   adsterra?: {
     enabled: boolean;
-    code: string;
+    code?: string; // Universal / Combined Adsterra code
+    popunderCode?: string; // Popunder script
+    socialBarCode?: string; // Social Bar / In-page Push notifications
+    displayBannerCode?: string; // Display Banner (728x90, 300x250, etc.)
+    nativeBannerCode?: string; // Native Banner (4x1 or 3x2 grid)
+    directLinkUrl?: string; // Direct / SmartLink URL
   };
 }
 
