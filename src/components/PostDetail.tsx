@@ -400,11 +400,11 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
             {/* In-Article 50% Milestone Adsterra Banner (320x50) */}
             {isAdsterraEnabled && displayAdCode && (
-              <div className="my-10 flex flex-col items-center justify-center">
+              <div className="my-8 flex flex-col items-center justify-center">
                 <AdsterraSlot
                   code={displayAdCode}
                   format="banner"
-                  label="SPONSORED HIGHLIGHT • 50% ARTICLE MILESTONE"
+                  label="SPONSORED HIGHLIGHT"
                   className="my-0"
                 />
               </div>
@@ -415,11 +415,11 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
             {/* In-Article Concluding Adsterra Native Banner */}
             {isAdsterraEnabled && nativeAdCode && (
-              <div className="my-10 pt-4">
+              <div className="my-8 pt-2">
                 <AdsterraSlot
                   code={nativeAdCode}
                   format="native"
-                  label="RECOMMENDED DISPATCHES & SPONSORS"
+                  label="RECOMMENDED FOR YOU"
                   className="my-0"
                 />
               </div>
@@ -431,11 +431,11 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
             {/* In-Article Banner */}
             {isAdsterraEnabled && displayAdCode && (
-              <div className="my-8 flex flex-col items-center justify-center">
+              <div className="my-6 flex flex-col items-center justify-center">
                 <AdsterraSlot
                   code={displayAdCode}
                   format="banner"
-                  label="SPONSORED HIGHLIGHT • IN-ARTICLE BANNER"
+                  label="SPONSORED HIGHLIGHT"
                   className="my-0"
                 />
               </div>
@@ -443,11 +443,11 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
             {/* In-Article Native Banner */}
             {isAdsterraEnabled && nativeAdCode && (
-              <div className="my-8 pt-4">
+              <div className="my-6 pt-2">
                 <AdsterraSlot
                   code={nativeAdCode}
                   format="native"
-                  label="RECOMMENDED DISPATCHES & SPONSORS"
+                  label="RECOMMENDED FOR YOU"
                   className="my-0"
                 />
               </div>
