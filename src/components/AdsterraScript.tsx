@@ -43,6 +43,12 @@ export const AdsterraScript: React.FC<AdsterraScriptProps> = ({ adsterra }) => {
           const scriptTags = Array.from(doc.querySelectorAll('script'));
 
           scriptTags.forEach((oldScript) => {
+            const src = oldScript.getAttribute('src');
+            // Check if script with this source is already present in document
+            if (src && document.querySelector(`script[src="${src}"]`)) {
+              return;
+            }
+
             const newScript = document.createElement('script');
             newScript.setAttribute('data-adsterra-global', 'true');
 
@@ -58,15 +64,20 @@ export const AdsterraScript: React.FC<AdsterraScriptProps> = ({ adsterra }) => {
           });
         } else {
           // Direct URL or JS
+          const isUrl =
+            rawSnippet.startsWith('http://') ||
+            rawSnippet.startsWith('https://') ||
+            rawSnippet.startsWith('//');
+
+          if (isUrl && document.querySelector(`script[src="${rawSnippet}"]`)) {
+            return;
+          }
+
           const script = document.createElement('script');
           script.setAttribute('data-adsterra-global', 'true');
           script.type = 'text/javascript';
 
-          if (
-            rawSnippet.startsWith('http://') ||
-            rawSnippet.startsWith('https://') ||
-            rawSnippet.startsWith('//')
-          ) {
+          if (isUrl) {
             script.src = rawSnippet;
           } else {
             script.textContent = rawSnippet;

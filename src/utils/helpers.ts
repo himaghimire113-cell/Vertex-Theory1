@@ -297,3 +297,57 @@ export function formatEditorialDate(isoString: string): string {
   }
 }
 
+/**
+ * Splits article markdown content into two balanced halves at approximately the 50% mark,
+ * respecting paragraph breaks, code fences, and section headers so markdown structure is preserved.
+ */
+export function splitContentAtMidpoint(content: string): [string, string] {
+  if (!content) return ['', ''];
+  const lines = content.split('\n');
+  if (lines.length <= 4) {
+    return [content, ''];
+  }
+
+  let inCodeBlock = false;
+  const breakCandidates: { index: number; weight: number }[] = [];
+
+  for (let i = 1; i < lines.length - 1; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('```')) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+
+    if (!inCodeBlock) {
+      // Prioritize empty lines (paragraph breaks) or heading starts (## or ###)
+      if (line === '') {
+        breakCandidates.push({ index: i, weight: 1 });
+      } else if (line.startsWith('## ') || line.startsWith('### ')) {
+        breakCandidates.push({ index: i, weight: 2 });
+      }
+    }
+  }
+
+  if (breakCandidates.length === 0) {
+    const half = Math.floor(lines.length / 2);
+    return [lines.slice(0, half).join('\n').trim(), lines.slice(half).join('\n').trim()];
+  }
+
+  const targetLine = lines.length * 0.5;
+  let best = breakCandidates[0];
+  let minDistance = Math.abs(best.index - targetLine) - (best.weight === 2 ? 2 : 0);
+
+  for (const candidate of breakCandidates) {
+    const distance = Math.abs(candidate.index - targetLine) - (candidate.weight === 2 ? 2 : 0);
+    if (distance < minDistance) {
+      minDistance = distance;
+      best = candidate;
+    }
+  }
+
+  const firstPart = lines.slice(0, best.index).join('\n').trim();
+  const secondPart = lines.slice(best.index).join('\n').trim();
+
+  return [firstPart, secondPart];
+}
+

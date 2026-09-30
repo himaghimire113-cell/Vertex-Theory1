@@ -24,12 +24,21 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
     badgeText: 'SPONSORED'
   },
   adsterra: {
-    enabled: false,
+    enabled: true,
     code: '',
-    popunderCode: '',
-    socialBarCode: '',
-    displayBannerCode: '',
-    nativeBannerCode: '',
+    popunderCode: '<script src="https://pl31589643.profitableratecpmnetwork.com/fe/2c/8b/fe2c8b0701053145e150031dcc57750a.js"></script>',
+    socialBarCode: '<script src="https://pl31589645.profitableratecpmnetwork.com/0d/0d/f4/0d0df4abe7c72cf97cf3b48ee609059d.js"></script>',
+    displayBannerCode: `<script type="text/javascript">
+  atOptions = {
+    'key' : '2dd318a780b3df49ba8fe22caf1135c0',
+    'format' : 'iframe',
+    'height' : 50,
+    'width' : 320,
+    'params' : {}
+  };
+</script>
+<script type="text/javascript" src="https://www.highrevenueformat.com/2dd318a780b3df49ba8fe22caf1135c0/invoke.js"></script>`,
+    nativeBannerCode: `<script async="async" data-cfasync="false" src="https://pl31589644.profitableratecpmnetwork.com/078a10985d69f4dc5f032115693a4055/invoke.js"></script>\n<div id="container-078a10985d69f4dc5f032115693a4055"></div>`,
     directLinkUrl: ''
   }
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ArrowLeft, 
   Clock, 
@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Post, PostComment, SiteSettings } from '../types';
-import { resolveDirectImageUrl, formatEditorialDate, navigateTo, getPostShareUrl } from '../utils/helpers';
+import { resolveDirectImageUrl, formatEditorialDate, navigateTo, getPostShareUrl, splitContentAtMidpoint } from '../utils/helpers';
 import { 
   fetchCommentsForPost, 
   addPostComment, 
@@ -47,6 +47,15 @@ export const PostDetail: React.FC<PostDetailProps> = ({
   const [likes, setLikes] = useState(post.likes || 0);
   const [hasLiked, setHasLiked] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Split post content at approximately 50% midpoint to insert banner ad
+  const [contentFirstHalf, contentSecondHalf] = useMemo(() => {
+    return splitContentAtMidpoint(post.content || '');
+  }, [post.content]);
+
+  const hasMidBanner = Boolean(
+    settings.adsterra?.enabled && settings.adsterra?.displayBannerCode && contentSecondHalf
+  );
   
   // Comments state
   const [comments, setComments] = useState<PostComment[]>([]);
@@ -372,16 +381,25 @@ export const PostDetail: React.FC<PostDetailProps> = ({
         {/* Sponsor Banner if active */}
         <SponsorBanner sponsor={settings.sponsorBanner} />
 
-        {/* Article Body: Restored clean article layout as it was before chat */}
-        <ArticleRenderer content={post.content} />
+        {/* Article Body with 50% Midpoint Banner Ad */}
+        {hasMidBanner ? (
+          <div className="article-body">
+            <ArticleRenderer content={contentFirstHalf} />
 
-        {/* Adsterra Display Banner (728x90, 300x250, etc.) */}
-        {settings.adsterra?.enabled && settings.adsterra.displayBannerCode && (
-          <AdsterraSlot
-            code={settings.adsterra.displayBannerCode}
-            format="banner"
-            label="SPONSORED HIGHLIGHT"
-          />
+            {/* In-Article 50% Milestone Adsterra Banner (320x50 / 728x90) */}
+            <div className="my-10 flex flex-col items-center justify-center">
+              <AdsterraSlot
+                code={settings.adsterra?.displayBannerCode}
+                format="banner"
+                label="SPONSORED HIGHLIGHT • 50% ARTICLE MILESTONE"
+                className="my-0"
+              />
+            </div>
+
+            <ArticleRenderer content={contentSecondHalf} />
+          </div>
+        ) : (
+          <ArticleRenderer content={post.content} />
         )}
 
         {/* Embedded Affiliate Links Section if defined */}

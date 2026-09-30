@@ -162,7 +162,17 @@ function saveLocalPosts(posts: Post[]) {
 function getLocalSettings(): SiteSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        ...INITIAL_SITE_SETTINGS,
+        ...parsed,
+        adsterra: {
+          ...INITIAL_SITE_SETTINGS.adsterra,
+          ...(parsed.adsterra || {})
+        }
+      };
+    }
   } catch (e) {
     console.error(e);
   }

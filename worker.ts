@@ -529,6 +529,12 @@ function renderCrawlerHtml(post: PostMetadata, canonicalUrl: string): string {
   <!-- Google AdSense Site Verification & Ad Engine -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5897761060403747" crossorigin="anonymous"></script>
 
+  <!-- Adsterra Popunder Engine -->
+  <script type="text/javascript" src="https://pl31589643.profitableratecpmnetwork.com/fe/2c/8b/fe2c8b0701053145e150031dcc57750a.js"></script>
+
+  <!-- Adsterra Social Bar Engine -->
+  <script type="text/javascript" src="https://pl31589645.profitableratecpmnetwork.com/0d/0d/f4/0d0df4abe7c72cf97cf3b48ee609059d.js"></script>
+
   <!-- Favicon & Icons -->
   <link rel="icon" type="image/svg+xml" sizes="any" href="/favicon.svg">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
@@ -621,6 +627,12 @@ function renderDefaultCrawlerHtml(canonicalUrl: string): string {
 
   <!-- Google AdSense Site Verification & Ad Engine -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5897761060403747" crossorigin="anonymous"></script>
+
+  <!-- Adsterra Popunder Engine -->
+  <script type="text/javascript" src="https://pl31589643.profitableratecpmnetwork.com/fe/2c/8b/fe2c8b0701053145e150031dcc57750a.js"></script>
+
+  <!-- Adsterra Social Bar Engine -->
+  <script type="text/javascript" src="https://pl31589645.profitableratecpmnetwork.com/0d/0d/f4/0d0df4abe7c72cf97cf3b48ee609059d.js"></script>
 
   <!-- Favicon & Icons -->
   <link rel="icon" type="image/svg+xml" sizes="any" href="/favicon.svg">
