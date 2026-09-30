@@ -399,7 +399,19 @@ export const PostDetail: React.FC<PostDetailProps> = ({
             <ArticleRenderer content={contentSecondHalf} />
           </div>
         ) : (
-          <ArticleRenderer content={post.content} />
+          <>
+            <ArticleRenderer content={post.content} />
+            {settings.adsterra?.enabled && settings.adsterra.displayBannerCode && (
+              <div className="my-8 flex flex-col items-center justify-center">
+                <AdsterraSlot
+                  code={settings.adsterra.displayBannerCode}
+                  format="banner"
+                  label="SPONSORED HIGHLIGHT"
+                  className="my-0"
+                />
+              </div>
+            )}
+          </>
         )}
 
         {/* Embedded Affiliate Links Section if defined */}

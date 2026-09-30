@@ -164,14 +164,24 @@ function getLocalSettings(): SiteSettings {
     const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return {
+      const cachedAdsterra = parsed.adsterra || {};
+      const mergedAdsterra = {
+        enabled: cachedAdsterra.enabled ?? INITIAL_SITE_SETTINGS.adsterra?.enabled ?? true,
+        code: cachedAdsterra.code || INITIAL_SITE_SETTINGS.adsterra?.code || '',
+        popunderCode: cachedAdsterra.popunderCode || INITIAL_SITE_SETTINGS.adsterra?.popunderCode || '',
+        socialBarCode: cachedAdsterra.socialBarCode || INITIAL_SITE_SETTINGS.adsterra?.socialBarCode || '',
+        displayBannerCode: cachedAdsterra.displayBannerCode || INITIAL_SITE_SETTINGS.adsterra?.displayBannerCode || '',
+        nativeBannerCode: cachedAdsterra.nativeBannerCode || INITIAL_SITE_SETTINGS.adsterra?.nativeBannerCode || '',
+        directLinkUrl: cachedAdsterra.directLinkUrl || INITIAL_SITE_SETTINGS.adsterra?.directLinkUrl || '',
+      };
+
+      const mergedSettings: SiteSettings = {
         ...INITIAL_SITE_SETTINGS,
         ...parsed,
-        adsterra: {
-          ...INITIAL_SITE_SETTINGS.adsterra,
-          ...(parsed.adsterra || {})
-        }
+        adsterra: mergedAdsterra
       };
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(mergedSettings));
+      return mergedSettings;
     }
   } catch (e) {
     console.error(e);

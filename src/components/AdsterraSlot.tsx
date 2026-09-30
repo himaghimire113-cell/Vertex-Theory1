@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useId } from 'react';
+import React, { useMemo, useState, useEffect, useId, useRef } from 'react';
 
 interface AdsterraSlotProps {
   code?: string;
@@ -21,6 +21,7 @@ export const AdsterraSlot: React.FC<AdsterraSlotProps> = ({
   const rawId = useId();
   const slotId = useMemo(() => `slot_${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`, [rawId]);
   const [dynamicHeight, setDynamicHeight] = useState<number | undefined>(undefined);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Detect fixed dimensions from standard atOptions if present
   const { detectedWidth, detectedHeight } = useMemo(() => {
@@ -33,7 +34,7 @@ export const AdsterraSlot: React.FC<AdsterraSlotProps> = ({
     };
   }, [trimmedCode]);
 
-  // Listen to height announcements from child iframe for responsive native banners
+  // Listen to height reports from the iframe for responsive native recommendation cards
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (
@@ -43,7 +44,7 @@ export const AdsterraSlot: React.FC<AdsterraSlotProps> = ({
         typeof event.data.height === 'number' &&
         event.data.height > 40
       ) {
-        setDynamicHeight(Math.ceil(event.data.height) + 12);
+        setDynamicHeight(Math.ceil(event.data.height) + 10);
       }
     };
 
@@ -51,9 +52,17 @@ export const AdsterraSlot: React.FC<AdsterraSlotProps> = ({
     return () => window.removeEventListener('message', handleMessage);
   }, [slotId]);
 
-  // Construct isolated srcdoc so Adsterra scripts don't conflict or overwrite window variables
-  const srcDoc = useMemo(() => {
-    return `<!DOCTYPE html>
+  // Mount ad content into friendly same-origin iframe using doc.open()/doc.write()
+  // This allows Adsterra scripts to execute in the actual site origin/domain without sandbox blocks
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    try {
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!doc) return;
+
+      const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -81,7 +90,7 @@ export const AdsterraSlot: React.FC<AdsterraSlotProps> = ({
   ${trimmedCode}
   <script>
     (function() {
-      function notify() {
+      function notifyHeight() {
         try {
           var h = Math.max(
             document.body.scrollHeight || 0,
@@ -93,19 +102,23 @@ export const AdsterraSlot: React.FC<AdsterraSlotProps> = ({
           }
         } catch(e) {}
       }
-      window.addEventListener('load', notify);
-      window.addEventListener('resize', notify);
-      var c = 0;
-      var interval = setInterval(function() {
-        notify();
-        c++;
-        if (c > 20) clearInterval(interval);
-      }, 400);
+      window.addEventListener('load', notifyHeight);
+      window.addEventListener('resize', notifyHeight);
+      [200, 600, 1200, 2500, 4500].forEach(function(delay) {
+        setTimeout(notifyHeight, delay);
+      });
     })();
   </script>
 </body>
 </html>`;
-  }, [trimmedCode, slotId]);
+
+      doc.open();
+      doc.write(htmlContent);
+      doc.close();
+    } catch (err) {
+      console.warn('Error injecting ad into friendly iframe:', err);
+    }
+  }, [trimmedCode, slotId, format]);
 
   const targetHeight = detectedHeight
     ? `${detectedHeight}px`
@@ -113,7 +126,7 @@ export const AdsterraSlot: React.FC<AdsterraSlotProps> = ({
     ? `${dynamicHeight}px`
     : format === 'native'
     ? '260px'
-    : '120px';
+    : '60px';
 
   return (
     <div className={`w-full my-8 flex flex-col items-center justify-center ${className}`}>
@@ -127,12 +140,12 @@ export const AdsterraSlot: React.FC<AdsterraSlotProps> = ({
       <div
         className="w-full flex justify-center items-center overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xs transition-colors"
         style={{
-          minHeight: detectedHeight ? `${detectedHeight}px` : format === 'native' ? '180px' : '100px'
+          minHeight: detectedHeight ? `${detectedHeight}px` : format === 'native' ? '180px' : '50px'
         }}
       >
         <iframe
+          ref={iframeRef}
           title={`Adsterra ${format} unit`}
-          srcDoc={srcDoc}
           style={{
             width: detectedWidth ? `${Math.min(detectedWidth, 1000)}px` : '100%',
             height: targetHeight,
@@ -141,8 +154,6 @@ export const AdsterraSlot: React.FC<AdsterraSlotProps> = ({
             overflow: 'hidden',
             transition: 'height 0.25s ease'
           }}
-          sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
-          loading="lazy"
         />
       </div>
     </div>
