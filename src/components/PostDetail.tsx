@@ -32,6 +32,7 @@ import { SponsorBanner } from './SponsorBanner';
 import { AdsterraSlot } from './AdsterraSlot';
 import { NewsletterSection } from './NewsletterSection';
 import { ArticleRenderer } from './ArticleRenderer';
+import { INITIAL_SITE_SETTINGS } from '../data/defaultData';
 
 interface PostDetailProps {
   post: Post;
@@ -53,8 +54,18 @@ export const PostDetail: React.FC<PostDetailProps> = ({
     return splitContentAtMidpoint(post.content || '');
   }, [post.content]);
 
+  const displayAdCode =
+    settings.adsterra?.displayBannerCode ||
+    INITIAL_SITE_SETTINGS.adsterra.displayBannerCode;
+
+  const nativeAdCode =
+    settings.adsterra?.nativeBannerCode ||
+    INITIAL_SITE_SETTINGS.adsterra.nativeBannerCode;
+
+  const isAdsterraEnabled = settings.adsterra?.enabled ?? true;
+
   const hasMidBanner = Boolean(
-    settings.adsterra?.enabled && settings.adsterra?.displayBannerCode && contentSecondHalf
+    isAdsterraEnabled && displayAdCode && contentSecondHalf
   );
   
   // Comments state
@@ -381,37 +392,67 @@ export const PostDetail: React.FC<PostDetailProps> = ({
         {/* Sponsor Banner if active */}
         <SponsorBanner sponsor={settings.sponsorBanner} />
 
-        {/* Article Body with 50% Midpoint Banner Ad */}
+        {/* Article Body with Both In-Post Ads */}
         {hasMidBanner ? (
           <div className="article-body">
+            {/* First half of blog post */}
             <ArticleRenderer content={contentFirstHalf} />
 
-            {/* In-Article 50% Milestone Adsterra Banner (320x50 / 728x90) */}
-            <div className="my-10 flex flex-col items-center justify-center">
-              <AdsterraSlot
-                code={settings.adsterra?.displayBannerCode}
-                format="banner"
-                label="SPONSORED HIGHLIGHT • 50% ARTICLE MILESTONE"
-                className="my-0"
-              />
-            </div>
-
-            <ArticleRenderer content={contentSecondHalf} />
-          </div>
-        ) : (
-          <>
-            <ArticleRenderer content={post.content} />
-            {settings.adsterra?.enabled && settings.adsterra.displayBannerCode && (
-              <div className="my-8 flex flex-col items-center justify-center">
+            {/* In-Article 50% Milestone Adsterra Banner (320x50) */}
+            {isAdsterraEnabled && displayAdCode && (
+              <div className="my-10 flex flex-col items-center justify-center">
                 <AdsterraSlot
-                  code={settings.adsterra.displayBannerCode}
+                  code={displayAdCode}
                   format="banner"
-                  label="SPONSORED HIGHLIGHT"
+                  label="SPONSORED HIGHLIGHT • 50% ARTICLE MILESTONE"
                   className="my-0"
                 />
               </div>
             )}
-          </>
+
+            {/* Second half of blog post */}
+            <ArticleRenderer content={contentSecondHalf} />
+
+            {/* In-Article Concluding Adsterra Native Banner */}
+            {isAdsterraEnabled && nativeAdCode && (
+              <div className="my-10 pt-4">
+                <AdsterraSlot
+                  code={nativeAdCode}
+                  format="native"
+                  label="RECOMMENDED DISPATCHES & SPONSORS"
+                  className="my-0"
+                />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="article-body">
+            <ArticleRenderer content={post.content} />
+
+            {/* In-Article Banner */}
+            {isAdsterraEnabled && displayAdCode && (
+              <div className="my-8 flex flex-col items-center justify-center">
+                <AdsterraSlot
+                  code={displayAdCode}
+                  format="banner"
+                  label="SPONSORED HIGHLIGHT • IN-ARTICLE BANNER"
+                  className="my-0"
+                />
+              </div>
+            )}
+
+            {/* In-Article Native Banner */}
+            {isAdsterraEnabled && nativeAdCode && (
+              <div className="my-8 pt-4">
+                <AdsterraSlot
+                  code={nativeAdCode}
+                  format="native"
+                  label="RECOMMENDED DISPATCHES & SPONSORS"
+                  className="my-0"
+                />
+              </div>
+            )}
+          </div>
         )}
 
         {/* Embedded Affiliate Links Section if defined */}
@@ -464,15 +505,6 @@ export const PostDetail: React.FC<PostDetailProps> = ({
               </span>
             ))}
           </div>
-        )}
-
-        {/* Adsterra Native Banner (e.g. 4x1 or 3x2 Grid Recommendation Widget) */}
-        {settings.adsterra?.enabled && settings.adsterra.nativeBannerCode && (
-          <AdsterraSlot
-            code={settings.adsterra.nativeBannerCode}
-            format="native"
-            label="RECOMMENDED DISPATCHES & SPONSORS"
-          />
         )}
 
         {/* Author Bio Box */}

@@ -52,17 +52,8 @@ export const AdsterraSlot: React.FC<AdsterraSlotProps> = ({
     return () => window.removeEventListener('message', handleMessage);
   }, [slotId]);
 
-  // Mount ad content into friendly same-origin iframe using doc.open()/doc.write()
-  // This allows Adsterra scripts to execute in the actual site origin/domain without sandbox blocks
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    try {
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!doc) return;
-
-      const htmlContent = `<!DOCTYPE html>
+  const htmlContent = useMemo(() => {
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -111,14 +102,38 @@ export const AdsterraSlot: React.FC<AdsterraSlotProps> = ({
   </script>
 </body>
 </html>`;
-
-      doc.open();
-      doc.write(htmlContent);
-      doc.close();
-    } catch (err) {
-      console.warn('Error injecting ad into friendly iframe:', err);
-    }
   }, [trimmedCode, slotId, format]);
+
+  // Mount ad content into friendly same-origin iframe with guaranteed execution
+  useEffect(() => {
+    let timer: any = null;
+
+    const renderAd = () => {
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!doc) return;
+
+        doc.open();
+        doc.write(htmlContent);
+        doc.close();
+      } catch (err) {
+        console.warn('Error injecting ad into friendly iframe:', err);
+      }
+    };
+
+    const iframe = iframeRef.current;
+    if (iframe) {
+      iframe.onload = renderAd;
+      timer = setTimeout(renderAd, 60);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [htmlContent]);
 
   const targetHeight = detectedHeight
     ? `${detectedHeight}px`
@@ -145,6 +160,7 @@ export const AdsterraSlot: React.FC<AdsterraSlotProps> = ({
       >
         <iframe
           ref={iframeRef}
+          src="about:blank"
           title={`Adsterra ${format} unit`}
           style={{
             width: detectedWidth ? `${Math.min(detectedWidth, 1000)}px` : '100%',
