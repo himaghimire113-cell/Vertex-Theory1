@@ -54,6 +54,50 @@ export const PostDetail: React.FC<PostDetailProps> = ({
     return splitContentAtMidpoint(post.content || '');
   }, [post.content]);
 
+  // Teaser Gate locker state (unlocks when user clicks 'Click here and comeback')
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem(`vt_unlocked_${post.id}`) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      setIsUnlocked(sessionStorage.getItem(`vt_unlocked_${post.id}`) === 'true');
+    } catch {
+      setIsUnlocked(false);
+    }
+  }, [post.id]);
+
+  const handleUnlockPost = () => {
+    // 1. Open configured Direct / SmartLink in a new tab if available
+    const directUrl = settings.adsterra?.directLinkUrl;
+    if (directUrl && directUrl.trim()) {
+      try {
+        window.open(directUrl.trim(), '_blank', 'noopener,noreferrer');
+      } catch (err) {
+        console.warn('Could not open direct link:', err);
+      }
+    }
+
+    // 2. Unlock post in state and session storage
+    setIsUnlocked(true);
+    try {
+      sessionStorage.setItem(`vt_unlocked_${post.id}`, 'true');
+    } catch {}
+
+    // 3. Trigger celebration confetti
+    try {
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.6 }
+      });
+    } catch {}
+  };
+
   const displayAdCode =
     settings.adsterra?.displayBannerCode ||
     INITIAL_SITE_SETTINGS.adsterra.displayBannerCode;
@@ -247,24 +291,112 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
   return (
     <div className="min-h-screen pb-20 w-full max-w-full overflow-x-hidden">
-      {/* Dynamic Top Reading Progress Bar */}
-      <div
-        className="fixed top-0 left-0 h-1 bg-[var(--color-accent)] z-50 transition-all duration-100 ease-out max-w-full"
-        style={{ width: `${Math.min(readingProgress, 100)}%` }}
-      />
+      {/* Dynamic Top Reading Progress Bar (only when unlocked) */}
+      {isUnlocked && (
+        <div
+          className="fixed top-0 left-0 h-1 bg-[var(--color-accent)] z-50 transition-all duration-100 ease-out max-w-full"
+          style={{ width: `${Math.min(readingProgress, 100)}%` }}
+        />
+      )}
 
-      <article className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10 w-full min-w-0 overflow-x-hidden">
-        {/* Back Link */}
-        <button
-          onClick={() => navigateTo({ page: 'home', post: undefined })}
-          className="inline-flex items-center gap-2 text-xs font-mono text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors mb-6 group cursor-pointer"
-        >
-          <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
-          <span>BACK TO ALL DISPATCHES</span>
-        </button>
+      {!isUnlocked ? (
+        /* LOCKED TEASER GATE SCREEN - MATCHES USER SCREENSHOT EXACTLY */
+        <article className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10 pb-16 w-full min-w-0">
+          {/* Back Link */}
+          <button
+            onClick={() => navigateTo({ page: 'home', post: undefined })}
+            className="inline-flex items-center gap-2 text-xs font-mono text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors mb-6 group cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+            <span>BACK TO ALL DISPATCHES</span>
+          </button>
 
-        {/* Article Header */}
-        <header className="space-y-5 pb-8 border-b border-[var(--color-border)] w-full min-w-0">
+          <div className="bg-[var(--color-surface)] p-5 sm:p-7 rounded-2xl border border-[var(--color-border)] shadow-sm">
+            {/* Top row: Left reframed thumbnail, Right Post Title */}
+            <div className="flex items-start gap-4 sm:gap-6">
+              <div className="w-28 h-28 sm:w-36 sm:h-36 shrink-0 rounded-xl overflow-hidden border-2 border-black/80 bg-black shadow-md">
+                <img
+                  src={imageUrl}
+                  alt={post.title}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h1 className="font-heading font-black text-2xl sm:text-3xl md:text-4xl text-[var(--color-text-primary)] leading-[1.18] tracking-tight break-words">
+                  {post.title}
+                </h1>
+              </div>
+            </div>
+
+            {/* Excerpt of the specific blog post */}
+            <p className="mt-5 text-[15px] sm:text-[17px] font-sans font-medium text-[var(--color-text-primary)] opacity-90 leading-relaxed break-words">
+              {post.excerpt}
+            </p>
+
+            {/* Center "Click here and comeback" button */}
+            <div className="my-8 flex flex-col items-center justify-center gap-2.5">
+              <button
+                type="button"
+                onClick={handleUnlockPost}
+                className="px-7 py-3 sm:px-9 sm:py-3.5 rounded-full bg-white text-black font-extrabold text-base sm:text-lg border-2 border-black shadow-[3px_4px_0px_#e5c58a] hover:shadow-[1px_2px_0px_#e5c58a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[4px] active:shadow-none transition-all cursor-pointer flex items-center justify-center gap-2 group"
+              >
+                <span>Click here and comeback</span>
+              </button>
+              <span className="text-[11px] font-mono text-[var(--color-text-dim)] uppercase tracking-wider">
+                Tap to unlock full article
+              </span>
+            </div>
+
+            {/* Native Banner Ads right below the button as circled in screenshot */}
+            {isAdsterraEnabled && nativeAdCode && (
+              <div className="w-full mt-6 pt-4 border-t border-[var(--color-border)]/60">
+                <AdsterraSlot
+                  code={nativeAdCode}
+                  format="native"
+                  label="RECOMMENDED FOR YOU"
+                  className="my-0"
+                />
+              </div>
+            )}
+          </div>
+        </article>
+      ) : (
+        /* FULL UNLOCKED ARTICLE */
+        <article className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10 w-full min-w-0 overflow-x-hidden">
+          {/* Back Link & Unlocked State Indicator */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-2 border-b border-[var(--color-border)]/50">
+            <button
+              onClick={() => navigateTo({ page: 'home', post: undefined })}
+              className="inline-flex items-center gap-2 text-xs font-mono text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors group cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+              <span>BACK TO ALL DISPATCHES</span>
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-semibold">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Article Unlocked</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsUnlocked(false);
+                  try {
+                    sessionStorage.removeItem(`vt_unlocked_${post.id}`);
+                  } catch {}
+                }}
+                className="text-[11px] font-mono text-[var(--color-text-dim)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+                title="Lock article again to test gate screen"
+              >
+                Re-lock Gate Preview
+              </button>
+            </div>
+          </div>
+
+          {/* Article Header */}
+          <header className="space-y-5 pb-8 border-b border-[var(--color-border)] w-full min-w-0">
           {/* Category & Read Time */}
           <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-[var(--color-text-muted)]">
             <span className="px-3 py-1 rounded-full bg-[var(--color-surface-secondary)] text-[var(--color-accent)] font-semibold uppercase tracking-wider border border-[var(--color-border)]">
@@ -732,6 +864,7 @@ export const PostDetail: React.FC<PostDetailProps> = ({
           </section>
         )}
       </article>
+      )}
     </div>
   );
 };
