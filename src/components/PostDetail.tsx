@@ -71,6 +71,34 @@ export const PostDetail: React.FC<PostDetailProps> = ({
     }
   }, [post.id]);
 
+  // Dynamically load the Adsterra Popunder script ONLY while on the locked teaser gate
+  useEffect(() => {
+    if (isUnlocked) {
+      document.getElementById('adsterra-teaser-popunder')?.remove();
+      return;
+    }
+    const isAdsterraEnabled = settings.adsterra?.enabled ?? true;
+    if (!isAdsterraEnabled) return;
+
+    const rawPopunder = settings.adsterra?.popunderCode || INITIAL_SITE_SETTINGS.adsterra.popunderCode;
+    const srcMatch = rawPopunder ? rawPopunder.match(/src=["'](.*?)["']/) : null;
+    const popunderSrc = srcMatch ? srcMatch[1] : 'https://pl31589643.profitableratecpmnetwork.com/fe/2c/8b/fe2c8b0701053145e150031dcc57750a.js';
+
+    // Remove any previously existing popunder script to keep state clean
+    const existing = document.getElementById('adsterra-teaser-popunder');
+    if (existing) existing.remove();
+
+    const script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = popunderSrc;
+    script.id = 'adsterra-teaser-popunder';
+    document.head.appendChild(script);
+
+    return () => {
+      document.getElementById('adsterra-teaser-popunder')?.remove();
+    };
+  }, [isUnlocked, settings.adsterra?.popunderCode, settings.adsterra?.enabled]);
+
   const handleUnlockPost = () => {
     // 1. Open configured Direct / SmartLink in a new tab if available
     const directUrl = settings.adsterra?.directLinkUrl;
@@ -88,7 +116,10 @@ export const PostDetail: React.FC<PostDetailProps> = ({
       sessionStorage.setItem(`vt_unlocked_${post.id}`, 'true');
     } catch {}
 
-    // 3. Trigger celebration confetti
+    // 3. Immediately clean up popunder script so it never triggers anywhere else
+    document.getElementById('adsterra-teaser-popunder')?.remove();
+
+    // 4. Trigger celebration confetti
     try {
       confetti({
         particleCount: 50,
@@ -301,7 +332,18 @@ export const PostDetail: React.FC<PostDetailProps> = ({
 
       {!isUnlocked ? (
         /* LOCKED TEASER GATE SCREEN - MATCHES USER SCREENSHOT EXACTLY */
-        <article className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10 pb-16 w-full min-w-0">
+        <article
+          onClickCapture={(e) => {
+            const target = e.target as HTMLElement;
+            const isUnlockButton = Boolean(target.closest('#unlock-gate-btn'));
+            // If the user tapped outside the "Click here and comeback" button (e.g. title, excerpt, back button),
+            // stop propagation so the popunder click listener does NOT trigger!
+            if (!isUnlockButton) {
+              e.stopPropagation();
+            }
+          }}
+          className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10 pb-16 w-full min-w-0"
+        >
           {/* Back Link */}
           <button
             onClick={() => navigateTo({ page: 'home', post: undefined })}
@@ -337,6 +379,7 @@ export const PostDetail: React.FC<PostDetailProps> = ({
             {/* Center "Click here and comeback" button */}
             <div className="my-8 flex flex-col items-center justify-center gap-2.5">
               <button
+                id="unlock-gate-btn"
                 type="button"
                 onClick={handleUnlockPost}
                 className="px-7 py-3 sm:px-9 sm:py-3.5 rounded-full bg-white text-black font-extrabold text-base sm:text-lg border-2 border-black shadow-[3px_4px_0px_#e5c58a] hover:shadow-[1px_2px_0px_#e5c58a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[4px] active:shadow-none transition-all cursor-pointer flex items-center justify-center gap-2 group"

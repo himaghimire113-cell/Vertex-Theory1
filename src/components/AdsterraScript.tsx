@@ -21,9 +21,7 @@ export const AdsterraScript: React.FC<AdsterraScriptProps> = ({ adsterra }) => {
     // Collect all global snippets (Popunder, Social Bar, Universal code)
     const snippetsToInject: string[] = [];
 
-    if (adsterra.popunderCode?.trim()) {
-      snippetsToInject.push(adsterra.popunderCode.trim());
-    }
+    // Popunder is strictly isolated to the in-article unlock button only (not injected globally)
     if (adsterra.socialBarCode?.trim()) {
       snippetsToInject.push(adsterra.socialBarCode.trim());
     }
